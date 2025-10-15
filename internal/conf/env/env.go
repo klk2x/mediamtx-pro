@@ -234,6 +234,13 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			}
 			return nil
 		}
+
+	case reflect.Array:
+		// Handle fixed-size arrays like [4]int
+		if rt.Elem() == reflect.TypeOf(int(0)) {
+			// Array of int
+			return nil // Arrays are usually handled by YAML unmarshaler, just return nil
+		}
 	}
 
 	return fmt.Errorf("unsupported type: %v", rt)

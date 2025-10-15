@@ -135,8 +135,26 @@ func writeLevel(buf *bytes.Buffer, level Level, useColor bool) {
 	buf.WriteByte(' ')
 }
 
-func writeContent(buf *bytes.Buffer, format string, args []interface{}) {
-	fmt.Fprintf(buf, format, args...)
+func writeContent(buf *bytes.Buffer, format string, args []interface{}, useColor bool) {
+	content := fmt.Sprintf(format, args...)
+
+	if useColor {
+		// Replace [mizvai] and [rvideo] tags with colored versions
+		if bytes.Contains([]byte(content), []byte("[mizvai]")) {
+			content = fmt.Sprintf("%s", bytes.ReplaceAll(
+				[]byte(content),
+				[]byte("[mizvai]"),
+				[]byte(color.Cyan.Render("[mizvai]"))))
+		}
+		if bytes.Contains([]byte(content), []byte("[rvideo]")) {
+			content = fmt.Sprintf("%s", bytes.ReplaceAll(
+				[]byte(content),
+				[]byte("[rvideo]"),
+				[]byte(color.Magenta.Render("[rvideo]"))))
+		}
+	}
+
+	buf.WriteString(content)
 	buf.WriteByte('\n')
 }
 

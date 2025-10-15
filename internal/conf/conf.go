@@ -305,6 +305,15 @@ type Conf struct {
 	// Paths
 	OptionalPaths map[string]*OptionalPath `json:"paths"`
 	Paths         map[string]*Path         `json:"-"` // filled by Check()
+
+	// Pro Extension
+	CoreServerKey       string `json:"coreServerKey"`       // 许可证密钥
+	APIAuth             bool   `json:"apiAuth"`             // API 是否需要认证
+	APIAdminPage        bool   `json:"apiAdminPage"`        // 是否启用管理页面
+	APIDomain           string `json:"apiDomain"`           // 对外访问路径，如 http://192.168.1.100:9997
+	AppID               string `json:"appid"`               // 应用 ID
+	AppSecret           string `json:"appsecret"`           // 应用密钥
+	CodecServerAddress  string `json:"codecServerAddress"`  // R-Video 协议服务器地址
 }
 
 func (conf *Conf) setDefaults() {
@@ -419,6 +428,10 @@ func (conf *Conf) setDefaults() {
 	// SRT server
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+
+	// Pro Extension
+	conf.APIAuth = true
+	conf.CodecServerAddress = ":1688"
 
 	conf.PathDefaults.setDefaults()
 }

@@ -401,3 +401,18 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		return
 	}
 }
+
+// HandleRequest handles WebRTC HTTP requests (exported for integration with other routers).
+// This method can be used to integrate WebRTC functionality into a unified HTTP server.
+func (s *httpServer) HandleRequest(ctx *gin.Context) {
+	// Apply CORS middleware first
+	s.middlewareOrigin(ctx)
+
+	// If OPTIONS preflight was handled, return
+	if ctx.IsAborted() {
+		return
+	}
+
+	// Handle the request
+	s.onRequest(ctx)
+}

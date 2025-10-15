@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtsp"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
+	"github.com/bluenviron/mediamtx/pro/mizvai"
 )
 
 func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
@@ -75,6 +76,7 @@ type Source struct {
 	WriteTimeout   conf.Duration
 	WriteQueueSize int
 	Parent         parent
+	snapshot       mizvai.VideoSnapshotServer
 }
 
 // Log implements logger.Writer.
@@ -85,6 +87,37 @@ func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 // Run implements StaticSource.
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
+
+	// Initialize video snapshot if enabled
+	if params.Conf.VideoSnapshotEnable {
+		s.Log(logger.Info, "VideoSnapshotEnable for source: %s", params.Conf.Source)
+
+		if s.snapshot != nil {
+			s.snapshot.Stop()
+			s.snapshot = nil
+		}
+
+		if s.snapshot == nil {
+			pipelineConf := ""
+			if params.Conf.VideoSnapshotPipelineConf != nil {
+				pipelineConf = *params.Conf.VideoSnapshotPipelineConf
+			}
+
+			s.snapshot = mizvai.NewVideoSnapshotServerLauncher(&mizvai.VideoSnapshotServerConfig{
+				VideoSnapshotModulePath:   params.Conf.VideoSnapshotModulePath,
+				VideoSnapshotPipelineConf: pipelineConf,
+				Source:                    params.Conf.Source,
+			}, s)
+		}
+	}
+
+	// Cleanup snapshot on exit
+	defer func() {
+		if s.snapshot != nil {
+			s.snapshot.Stop()
+			s.snapshot = nil
+		}
+	}()
 
 	packetsLost := &counterdumper.CounterDumper{
 		OnReport: func(val uint64) {
@@ -203,6 +236,14 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
+			// Start video snapshot after stream is ready
+			if s.snapshot != nil {
+				s.Log(logger.Info, "Starting video snapshot server")
+				if err2 := s.snapshot.Start(); err2 != nil {
+					s.Log(logger.Warn, "Failed to start video snapshot: %v", err2)
+				}
+			}
+
 			rtsp.ToStream(
 				c,
 				desc.Medias,
@@ -245,4 +286,14 @@ func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
 		Type: "rtspSource",
 		ID:   "",
 	}
+}
+
+// RestartVideoSnapshot restarts the video snapshot server (if running).
+// This is called when the pipeline configuration file is updated.
+func (s *Source) RestartVideoSnapshot() error {
+	if s.snapshot != nil && s.snapshot.IsRunning() {
+		s.Log(logger.Info, "Restarting video snapshot server due to config change")
+		return s.snapshot.Restart()
+	}
+	return nil
 }

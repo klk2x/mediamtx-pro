@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v4"
 	"github.com/pion/logging"
@@ -586,4 +587,14 @@ func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
+}
+
+// GetHTTPHandler returns a Gin handler function that can be used to integrate
+// WebRTC functionality into another HTTP router.
+// This allows Pro API to handle WebRTC requests on the same port.
+func (s *Server) GetHTTPHandler() func(*gin.Context) {
+	if s.httpServer == nil {
+		return nil
+	}
+	return s.httpServer.HandleRequest
 }

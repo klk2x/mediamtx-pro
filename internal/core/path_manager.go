@@ -634,3 +634,53 @@ func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 		return nil, fmt.Errorf("terminated")
 	}
 }
+
+// GetStreamForRecording returns the stream for a given path name.
+// This is used by the Pro recorder to access the stream for recording.
+func (pm *pathManager) GetStreamForRecording(pathName string) (interface{}, error) {
+	req := pathAPIPathsGetReq{
+		name: pathName,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		// Get the stream from the path
+		pa := res.path
+		if pa.stream == nil {
+			return nil, fmt.Errorf("path '%s' has no active stream", pathName)
+		}
+
+		return pa.stream, nil
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// RestartVideoSnapshot restarts the video snapshot server for a given path.
+// This is called when the snapshot pipeline configuration file is updated via the API.
+func (pm *pathManager) RestartVideoSnapshot(pathName string) error {
+	req := pathAPIPathsGetReq{
+		name: pathName,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return res.err
+		}
+
+		return res.path.RestartVideoSnapshot()
+
+	case <-pm.ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}

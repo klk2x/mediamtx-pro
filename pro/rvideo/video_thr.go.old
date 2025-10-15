@@ -1,0 +1,370 @@
+//go:build !gocv
+// +build !gocv
+
+package rvideo
+
+import (
+	"errors"
+	"image"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/mediamtx/internal/log"
+	"github.com/bluenviron/mediamtx/internal/websocketapi"
+	"github.com/lithammer/shortuuid"
+	"gocv.io/x/gocv"
+)
+
+type VideoThrServerConfig struct {
+	Url                   string
+	SavePath              string
+	DetectPointIntervalMs uint32
+	DetectPointNumber     uint8
+	DetectPointSelect     uint8
+	Threshold             uint8
+	ColorfulMinThreshold  int
+	Rectangle             [4]int
+}
+
+func NewVideoThrServerConfigDefualt() *VideoThrServerConfig {
+	return &VideoThrServerConfig{
+		SavePath:              ".",
+		DetectPointIntervalMs: 100,
+		DetectPointNumber:     5,
+		DetectPointSelect:     1,
+		Threshold:             95,
+	}
+}
+
+type VideoThrServerListener interface {
+	OnVideoSnapshot(filepath string)
+}
+type VideoThrServerInterface struct {
+	conf             *VideoThrServerConfig
+	listener         VideoThrServerListener
+	readStatusTicker *time.Ticker
+	running          bool
+	videoThrServer   *VideoThrServer
+}
+type VideoThrServer struct {
+	conf       *VideoThrServerConfig
+	listener   VideoThrServerListener
+	currImg    gocv.Mat
+	prevBinImg *gocv.Mat
+	currBinImg gocv.Mat
+	similarity []uint8
+	historyImg []*gocv.Mat
+	running    bool
+	// done       chan bool
+	status int
+}
+
+func (p *VideoThrServer) isVideoSnapshot() bool {
+	for _, item := range p.similarity {
+		if item < p.conf.Threshold {
+			return false
+		}
+	}
+
+	return true
+}
+
+type SnapshotMessage struct {
+	FilePath string `json:"filePath" form:"filePath"`
+}
+
+func (p *VideoThrServer) asyncMessage(d interface{}) {
+	websocketapi.PostMessage(d)
+}
+func (p *VideoThrServer) CreateDateDir(basePath string) (fpath string, folderName string, err error) {
+	folderName = time.Now().Format("20060102")
+	folderPath := filepath.Join(basePath, folderName)
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		// 必须分成两步
+		// 先创建文件夹
+		os.MkdirAll(folderPath, 0777)
+		// 再修改权限
+		os.Chmod(folderPath, 0777)
+	}
+	return folderPath, folderName, err
+}
+func (p *VideoThrServer) loopVideoSnapshot() error {
+	timeout := time.Duration(p.conf.DetectPointIntervalMs) * time.Millisecond
+	diffImg := gocv.NewMat()
+	currBinImg, prevBinImg := gocv.NewMat(), gocv.NewMat()
+	meanImg, stdImg := gocv.NewMat(), gocv.NewMat()
+
+	defer func() {
+		_ = currBinImg.Close()
+		_ = prevBinImg.Close()
+		_ = diffImg.Close()
+		_ = meanImg.Close()
+		_ = stdImg.Close()
+		p.currImg.Close()
+	}()
+	defer p.Stop()
+
+	p.currImg.CopyTo(&prevBinImg)
+
+	isColorfulValue := 0
+	var pingCount = 0
+
+	for p.running {
+
+		if p.currImg.Empty() {
+			continue
+		}
+		img, err := p.currImg.ToImage()
+
+		if err != nil {
+			log.Info("[snapshot] p.currImg.ToImage() %s", err.Error())
+		}
+
+		val, _ := isColorful(img)
+
+		log.Infof("[snapshot] path=%s  colorful++ = %d MinThreshold =  %d", p.conf.Url, val, p.conf.ColorfulMinThreshold)
+
+		// 连续多次灰度，停止
+		pingCount++
+		if isColorfulValue < p.conf.ColorfulMinThreshold {
+			isColorfulValue += val
+		} else {
+			pingCount = 0
+			isColorfulValue = 0
+		}
+
+		if pingCount > 3 && isColorfulValue < p.conf.ColorfulMinThreshold {
+			// p.running = false
+			break
+		}
+		if len(p.historyImg) > 0 {
+			if p.historyImg[0] != nil && p.historyImg[0] != p.historyImg[len(p.historyImg)-1] {
+				p.historyImg[0].Close() // 释放最早的
+			}
+		}
+		p.historyImg = append(p.historyImg[1:], &p.currImg)
+		gocv.Threshold(*p.historyImg[len(p.historyImg)-1], &currBinImg, 127, 255, gocv.ThresholdBinary)
+		gocv.AbsDiff(currBinImg, prevBinImg, &diffImg)
+		gocv.MeanStdDev(diffImg, &meanImg, &stdImg)
+
+		currBinImg.CopyTo(&prevBinImg)
+
+		similarity := 1.0 / (1.0 + meanImg.Mean().Val1/255.0 + stdImg.Mean().Val1/255.0) * 100
+		p.similarity = append(p.similarity[1:], uint8(similarity))
+		log.Info("[snapshot] similarity=%v", p.similarity)
+
+		if p.isVideoSnapshot() {
+			if p.status == 0 {
+				fname := time.Now().Format("2006-01-02-15-04-05") + "-" + strings.ToLower(shortuuid.New()[:8]) + ".jpg"
+				fullPath, folderName, _ := p.CreateDateDir(p.conf.SavePath)
+				fullName := filepath.Join(fullPath, fname)
+				if p.listener != nil {
+					p.listener.OnVideoSnapshot("")
+				}
+
+				if len(p.historyImg) > int(p.conf.DetectPointSelect) {
+					selectIndex := 0
+					if p.conf.DetectPointSelect > 0 {
+						selectIndex = int(p.conf.DetectPointSelect) - 1
+					}
+
+					log.Info("[snapshot] auto snapshot save to %s", fullName)
+					if p.historyImg[selectIndex] != nil {
+						fileAddress := filepath.Join(folderName, fname)
+						ok := gocv.IMWrite(fullName, *p.historyImg[selectIndex])
+						if ok {
+							log.Info("[snapshot] auto snapshot save to %s", fullName)
+							p.asyncMessage(&SnapshotMessage{
+								FilePath: fileAddress,
+							})
+						}
+						p.status = 1
+					}
+				}
+			}
+		} else {
+			p.status = 0
+		}
+		time.Sleep(timeout)
+	}
+
+	log.Info("[snapshot] loopVideoSnapshot end")
+	return errors.New("end")
+}
+
+// func (p *VideoThrServer) StartServe() error {
+
+// }
+func (p *VideoThrServer) Serve() (err error) {
+	log.Infof("VideoThrServer Start()")
+	p.similarity = make([]uint8, p.conf.DetectPointNumber)
+	p.historyImg = make([]*gocv.Mat, p.conf.DetectPointNumber)
+
+	if p.conf.DetectPointSelect > p.conf.DetectPointNumber {
+		p.conf.DetectPointSelect = p.conf.DetectPointNumber
+	}
+
+	//videoCapture, err := gocv.OpenVideoCapture(os.Args[1])
+	videoCapture, err := gocv.OpenVideoCapture(p.conf.Url)
+	if err != nil {
+		log.Errorf("OpenVideoCapture %s", err.Error())
+	}
+	width := videoCapture.Get(gocv.VideoCaptureFrameWidth)
+	height := videoCapture.Get(gocv.VideoCaptureFrameHeight)
+
+	defer videoCapture.Close()
+
+	currImg := gocv.NewMat()
+	defer currImg.Close()
+
+	// 判断超出
+	if p.conf.Rectangle[2] == 0 {
+		p.conf.Rectangle[2] = int(width)
+	}
+	if p.conf.Rectangle[3] == 0 {
+		p.conf.Rectangle[3] = int(height)
+	}
+	x := p.conf.Rectangle[0]
+	y := p.conf.Rectangle[1]
+	endX := x + p.conf.Rectangle[2]
+	endY := y + p.conf.Rectangle[3]
+
+	if x > int(width) {
+		x = 0
+	}
+	if y > int(height) {
+		y = 0
+	}
+	if endX > int(width) {
+		endX = int(width)
+	}
+	if endY > int(height) {
+		endY = int(height)
+	}
+
+	log.Info("[snapshot] image.Rect [%d,%d,%d,%d] w:%d h:%d", x, y, endX, endY, int(width), int(height))
+	rect := image.Rect(x, y, endX, endY)
+
+	if ok := videoCapture.Read(&currImg); !ok {
+		videoCapture.Close()
+		log.Errorf("err=%s", "can not read")
+		return err
+	}
+
+	p.currImg = currImg.Region(rect)
+	defer p.currImg.Close()
+
+	p.running = true
+
+	// p.done = make(chan bool)
+
+	go func() {
+		err = p.loopVideoSnapshot()
+		if err != nil {
+			return
+		}
+	}()
+
+	for p.running {
+		// if ok := videoCapture.Read(&currImg); !ok {
+		// 	p.Stop()
+		// 	break
+		// }
+		if ok := videoCapture.Read(&currImg); !ok {
+			videoCapture.Close()
+			log.Errorf("err=%s", "can not read")
+			return err
+		}
+		if currImg.Empty() {
+			continue
+		}
+
+	}
+	log.Info("[snapshot] path=%s end", p.conf.Url)
+	return err
+}
+
+func (p *VideoThrServer) CloseImgs() {
+	for _, img := range p.historyImg {
+		if img != nil {
+			img.Close()
+		}
+	}
+}
+func (p *VideoThrServer) Stop() {
+	log.Infof("[snapshot] VideoThrServer Stop()")
+	if p != nil {
+		p.CloseImgs()
+		p.running = false
+		// p = nil
+	}
+}
+
+func (i *VideoThrServerInterface) Stop() {
+	log.Infof("[snapshot] VideoThrServerInterface Stop()")
+	if i.readStatusTicker != nil {
+		i.readStatusTicker.Stop()
+	}
+	if i.videoThrServer != nil {
+		i.videoThrServer = nil
+	}
+	// i = nil
+}
+
+func (i *VideoThrServerInterface) Start() error {
+	u, err := base.ParseURL(i.conf.Url)
+	if err != nil {
+		log.Errorf("ParseURL err=%s", i.conf.Url)
+		return nil
+	}
+
+	log.Infof("[snapshot] VideoThrServerInterface Start()")
+	for {
+		<-i.readStatusTicker.C
+		{
+			// 检测在线状态启动截图
+			count, err := GetInputStatusIsAvalible(u.Host)
+			log.Infof("[snapshot] path=%s status : onLineCount = %d", i.conf.Url, count)
+			if err == nil {
+				if count > 0 && !i.videoThrServer.running {
+					log.Info("[snapshot] path=%s  设备在线，等待实时截图信号...", i.conf.Url)
+					// go func() {
+					// i.running = true
+					err := i.videoThrServer.Serve()
+					if err != nil {
+						i.videoThrServer.Stop()
+					}
+					// }()
+					// p.chOnline <- true
+				} else if count <= 0 && i.videoThrServer.running {
+					log.Info("[snapshot] path=%s 设备离线，暂停接收截图信号...", i.conf.Url)
+					// p.chOnline <- false
+					// i.running = false
+					i.videoThrServer.Stop()
+
+				}
+			} else {
+				log.Errorf("[snapshot] GetInputStatusIsAvalible error:%s", err.Error())
+			}
+		}
+	}
+}
+
+func NewVideoThrServer(conf *VideoThrServerConfig, listener VideoThrServerListener) *VideoThrServerInterface {
+
+	p := &VideoThrServer{
+		conf: conf,
+	}
+
+	i := &VideoThrServerInterface{
+		videoThrServer:   p,
+		running:          false,
+		conf:             conf,
+		listener:         listener,
+		readStatusTicker: time.NewTicker(time.Duration(conf.DetectPointIntervalMs*30) * time.Millisecond),
+	}
+	return i
+}

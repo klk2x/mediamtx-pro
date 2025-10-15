@@ -1,0 +1,161 @@
+package rvideo
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+
+	"github.com/bluenviron/mediamtx/internal/log"
+)
+
+type RtspProxyServer struct {
+	conn           net.Conn
+	clientListener net.Listener
+	addr           string
+}
+
+func (p *RtspProxyServer) Serve() (err error) {
+
+	p.clientListener, err = net.Listen("tcp", p.addr)
+	if err != nil {
+		log.Errorf("err=%s", err)
+		return err
+	}
+	log.Infof("Rtsp Proxy Server listening on: %s", p.addr)
+
+	defer func() {
+		err = p.clientListener.Close()
+		if err != nil {
+			log.Errorf("err=%s", err)
+		}
+	}()
+
+	for {
+		var conn net.Conn
+		conn, err = p.clientListener.Accept()
+		if err != nil {
+			log.Infof("Error accepting: %s", err.Error())
+			continue
+		}
+
+		log.Infof("Accept: %s", conn.RemoteAddr().String())
+
+		go func() {
+			if err = p.connHandler(conn); err != nil {
+				log.Errorf("err=%s", err)
+			}
+		}()
+	}
+
+	// return nil
+}
+
+func (p *RtspProxyServer) findRtspRemoteSrvConn(id string, url string) (conn net.Conn, err error) {
+	var remoteDeviceConn *RVideoClient
+	var remoteSrvConn *RVideoEndpoint
+	if remoteDeviceConn, err = GetRVideoClientById(id); err != nil {
+		return nil, err
+	}
+
+	if remoteSrvConn = remoteDeviceConn.GetEndpoint(url); remoteSrvConn == nil {
+		err = errors.New(fmt.Sprintf("no existed: device=%s endpoint=%s", id, url))
+		log.Errorf("err=%s", err)
+		return nil, err
+	}
+
+	return remoteSrvConn, nil
+}
+
+func (p *RtspProxyServer) pairClientAndRemote(rtspCliConn net.Conn, rtspRemoteSrvConn net.Conn) (err error) {
+	done := make(chan bool)
+
+	go func() {
+		if _, err = io.Copy(rtspCliConn, rtspRemoteSrvConn); err != nil {
+			log.Errorf("err=%s", err)
+			done <- true
+		}
+	}()
+
+	go func() {
+		if _, err = io.Copy(rtspRemoteSrvConn, rtspCliConn); err != nil {
+			log.Errorf("err=%s", err)
+			done <- true
+		}
+	}()
+
+	<-done
+
+	return err
+}
+
+func (p *RtspProxyServer) connHandler(conn net.Conn) (err error) {
+	b := make([]byte, 4096)
+	n := int(0)
+
+	defer func() { _ = conn.Close() }()
+
+	if n, err = conn.Read(b); err != nil {
+		return err
+	}
+
+	// TODO: 从conn中获取id，url
+	// 获取id可以从opencv的url=rtsp://x.x.x.x:x/id
+	// 获取url可以从配置文件
+
+	var remoteSrvConn net.Conn
+	if remoteSrvConn, err = p.findRtspRemoteSrvConn("id", "url"); err != nil {
+		return err
+	}
+
+	// TODO: 补发链路配对前的数据
+	if n, err = remoteSrvConn.Write(b[:n]); err != nil {
+		return err
+	}
+
+	if err = p.pairClientAndRemote(conn, remoteSrvConn); err != nil {
+		return err
+	}
+
+	return err
+}
+
+func createRtspRemoteSrvConn(remoteDevice *RVideoClient) (ep *RVideoEndpoint, err error) {
+	reader := bufio.NewReader(remoteDevice)
+	var command string
+	for {
+		if command, err = reader.ReadString('\n'); err != nil {
+			log.Errorf("err=%s", err)
+			return
+		}
+
+		var n int
+		var url string
+
+		if n, err = fmt.Sscanf(command, "R-VideoClient url=%s\n", &url); err != nil {
+			log.Errorf("err=%s", err)
+			return
+		}
+		if n != 1 {
+			log.Errorf("err=%s", err)
+			continue
+		}
+
+		//go func() {
+		//	var ep *RVideoEndpoint
+		//	ep = NewRVideoEndpoint(remoteDevice, url)
+		//	ep.SetRVideoClient(remoteDevice)
+		//	if err = ep.Serve(); err != nil {
+		//		log.Errorf("err=%s", err)
+		//		_, _ = remoteDevice.Write([]byte(err.Error()))
+		//	}
+		//}()
+	}
+}
+
+func NewRtspProxyServer(addr string) *RtspProxyServer {
+	return &RtspProxyServer{
+		addr: addr,
+	}
+}

@@ -5,3 +5,40 @@
 /internal/core/VERSION
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*/
+/recordings
+
+# Compiled binaries
+mediamtx
+mediamtx-pro*
+mediamtx.exe
+mediamtx-pro.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Build artifacts
+/dist/
+/build/
+
+# Log files
+*.log
+mediamtx.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependency directories
+vendor/

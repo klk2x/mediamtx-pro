@@ -1,0 +1,390 @@
+###############################################
+# MediaMTX Pro 配置文件
+# 只包含必要的模块：API、WebRTC、RTMP、RTSP、Path
+
+###############################################
+# Pro 版本专属配置
+# 注意：以下配置项不会被 internal/conf 解析，由 Pro 版本独立处理
+
+# 许可证密钥（必填）
+coreServerKey: IO3sSdW8SNm8Qkh/GNmc4pwPm4MZ+RzL3MvuHZ/vFYvWSRvQ9qRK2bZg3T0PwJM5Bhgcb4X65A==
+
+# API 是否需要认证（局域网环境可以关闭）
+apiAuth: no
+
+# 是否启用 Web 管理页面
+apiAdminPage: yes
+
+# 应用 ID
+appid: devNm5C3
+
+# 应用密钥
+appsecret: PhLCTSEVNm5C3wf3IZKAXDPXK64PGdCnqL6LbnzZnwwW3MyMSCb5W9MT63jGwBAQ
+
+###############################################
+# 全局配置
+
+# 日志级别: "error", "warn", "info", "debug"
+logLevel: info
+# 日志输出目标: "stdout", "file", "syslog"
+logDestinations: [stdout]
+# 如果 logDestinations 包含 "file"，这是日志文件路径
+logFile: mediamtx-pro.log
+
+# 读取操作超时时间
+readTimeout: 10s
+# 写入操作超时时间
+writeTimeout: 10s
+# 发送队列大小（越大吞吐量越高，越小内存占用越少）
+writeQueueSize: 512
+# UDP 最大负载大小
+udpMaxPayloadSize: 1472
+
+# 客户端连接时执行的命令
+runOnConnect:
+# 连接后是否重启命令
+runOnConnectRestart: no
+# 客户端断开连接时执行的命令
+runOnDisconnect:
+
+###############################################
+# 认证配置
+
+# 认证方法: "internal", "http", "jwt"
+authMethod: internal
+
+# 内部认证 - 用户列表
+authInternalUsers:
+  # 默认非特权用户（any 表示任何用户，包括匿名用户）
+- user: any
+  pass:
+  ips: []
+  permissions:
+  - action: publish
+    path:
+  - action: read
+    path:
+  - action: playback
+    path:
+
+  # 默认管理员（仅允许本地访问 API）
+- user: any
+  pass:
+  ips: ['127.0.0.1', '::1']
+  permissions:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# HTTP 认证地址
+authHTTPAddress:
+# HTTP 认证排除规则
+authHTTPExclude:
+- action: api
+- action: metrics
+- action: pprof
+
+# JWT 认证 JWKS URL
+authJWTJWKS:
+# JWT JWKS 证书指纹
+authJWTJWKSFingerprint:
+# JWT 权限声明的键名
+authJWTClaimKey: mediamtx_permissions
+# JWT 认证排除规则
+authJWTExclude: []
+# 是否允许通过 HTTP 查询参数传递 JWT
+authJWTInHTTPQuery: true
+
+###############################################
+# Control API
+
+# 是否启用 Control API
+api: yes
+# API 监听地址
+apiAddress: :9997
+# 是否启用 TLS/HTTPS
+apiEncryption: no
+# 服务器密钥路径（仅当 encryption 为 yes 时需要）
+apiServerKey: server.key
+# 服务器证书路径
+apiServerCert: server.crt
+# Access-Control-Allow-Origin 响应头的值
+apiAllowOrigin: '*'
+# 代理服务器 IP 或 CIDR 列表
+apiTrustedProxies: []
+
+###############################################
+# Metrics 监控
+
+# 是否启用 Prometheus 兼容的监控指标
+metrics: no
+# Metrics 监听地址
+metricsAddress: :9998
+# 是否启用 TLS/HTTPS
+metricsEncryption: no
+metricsServerKey: server.key
+metricsServerCert: server.crt
+metricsAllowOrigin: '*'
+metricsTrustedProxies: []
+
+###############################################
+# PPROF 性能分析
+
+# 是否启用 pprof 性能分析端点
+pprof: no
+pprofAddress: :9999
+pprofEncryption: no
+pprofServerKey: server.key
+pprofServerCert: server.crt
+pprofAllowOrigin: '*'
+pprofTrustedProxies: []
+
+###############################################
+# RTSP 服务器
+
+# 是否启用 RTSP 协议
+rtsp: yes
+# 启用的 RTSP 传输协议列表
+# UDP 性能最好，但在 NAT/防火墙环境下可能不工作
+# UDP-multicast 可以在同一局域网内节省带宽
+# TCP 最通用
+rtspTransports: [udp, multicast, tcp]
+# 是否使用安全协议（RTSPS, TLS, SRTP）: "no", "strict", "optional"
+rtspEncryption: "no"
+# RTSP 监听地址（当 encryption 为 "no" 或 "optional" 时）
+rtspAddress: :8554
+# RTSPS 监听地址（当 encryption 为 "strict" 或 "optional" 时）
+rtspsAddress: :8322
+# RTP 监听地址（仅当 rtspTransports 包含 "udp" 时）
+rtpAddress: :8000
+# RTCP 监听地址（仅当 rtspTransports 包含 "udp" 时）
+rtcpAddress: :8001
+# UDP-multicast IP 范围
+multicastIPRange: 224.1.0.0/16
+# UDP-multicast RTP 端口
+multicastRTPPort: 8002
+# UDP-multicast RTCP 端口
+multicastRTCPPort: 8003
+# SRTP 监听地址（仅当启用加密且 rtspTransports 包含 "udp" 时）
+srtpAddress: :8004
+srtcpAddress: :8005
+multicastSRTPPort: 8006
+multicastSRTCPPort: 8007
+# 服务器密钥路径
+rtspServerKey: server.key
+# 服务器证书路径
+rtspServerCert: server.crt
+# 认证方法: "basic", "digest"
+rtspAuthMethods: [basic]
+# RTSP UDP 读取缓冲区大小（0 表示使用系统默认值）
+rtspUDPReadBufferSize: 0
+
+###############################################
+# RTMP 服务器
+
+# 是否启用 RTMP 协议
+rtmp: yes
+# RTMP 监听地址（当 encryption 为 "no" 或 "optional" 时）
+rtmpAddress: :1935
+# 是否使用 TLS 加密（RTMPS）: "no", "strict", "optional"
+rtmpEncryption: "no"
+# RTMPS 监听地址（当 encryption 为 "strict" 或 "optional" 时）
+rtmpsAddress: :1936
+rtmpServerKey: server.key
+rtmpServerCert: server.crt
+
+###############################################
+# WebRTC 服务器
+
+# 是否启用 WebRTC 协议
+webrtc: yes
+# WebRTC HTTP 监听地址
+webrtcAddress: :8889
+# 是否启用 TLS/HTTPS
+webrtcEncryption: no
+webrtcServerKey: server.key
+webrtcServerCert: server.crt
+webrtcAllowOrigin: '*'
+webrtcTrustedProxies: []
+# 本地 UDP 监听地址（留空则禁用）
+webrtcLocalUDPAddress: :8189
+# 本地 TCP 监听地址（默认禁用，TCP 效率低于 UDP）
+webrtcLocalTCPAddress: ''
+# 是否从网络接口获取 IP
+webrtcIPsFromInterfaces: yes
+# 指定使用哪些网络接口的 IP（空表示使用所有可用接口）
+webrtcIPsFromInterfacesList: []
+# 额外的主机名或 IP 列表
+webrtcAdditionalHosts: []
+# ICE 服务器配置（仅当客户端无法直接访问本地监听器时需要）
+webrtcICEServers2: []
+  # - url: stun:stun.l.google.com:19302
+  #   username: ''
+  #   password: ''
+  #   clientOnly: false
+# WebRTC 握手超时时间
+webrtcHandshakeTimeout: 10s
+# 视频轨道收集超时时间
+webrtcTrackGatherTimeout: 2s
+# STUN 候选收集超时时间
+webrtcSTUNGatherTimeout: 5s
+
+###############################################
+# 路径默认配置
+# 除非在 paths 中覆盖，否则以下配置应用于所有路径
+
+pathDefaults:
+
+  ###############################################
+  # 通用配置
+
+  # 流的来源:
+  # * publisher -> 由 RTSP、RTMP、WebRTC、SRT 客户端推流
+  # * rtsp://existing-url -> 从另一个 RTSP 服务器拉流
+  # * rtsps://existing-url -> 从 RTSPS 服务器拉流
+  # * rtmp://existing-url -> 从 RTMP 服务器拉流
+  # * rtmps://existing-url -> 从 RTMPS 服务器拉流
+  # * http://existing-url/stream.m3u8 -> 从 HLS 服务器拉流
+  # * https://existing-url/stream.m3u8 -> 从 HTTPS HLS 服务器拉流
+  # * srt://existing-url -> 从 SRT 服务器拉流
+  # * whep://existing-url -> 从 WebRTC 服务器拉流
+  # * redirect -> 由另一个路径或服务器提供
+  source: publisher
+
+  # 如果 source 是 URL，是否仅在有读取者时才拉流（节省带宽）
+  sourceOnDemand: no
+  # 如果 sourceOnDemand 为 yes，读取者等待源准备就绪的超时时间
+  sourceOnDemandStartTimeout: 10s
+  # 如果 sourceOnDemand 为 yes，无读取者后多久关闭源
+  sourceOnDemandCloseAfter: 10s
+
+  # 最大读取者数量（0 表示无限制）
+  maxReaders: 0
+
+  # 如果流不可用，将读取者重定向到此路径
+  fallback:
+
+  ###############################################
+  # 录制配置
+
+  # 是否录制流到磁盘
+  record: no
+  # 录制文件路径（自动添加扩展名）
+  # 可用变量: %path (路径名), %Y %m %d (年月日), %H %M %S (时分秒), %f (微秒)
+  recordPath: ./recordings
+  # 录制格式: "fmp4" (fragmented MP4) 或 "mpegts" (MPEG-TS)
+  recordFormat: fmp4
+  # 录制片段的时间间隔
+  recordPartDuration: 1s
+  # 最大片段大小（防止内存耗尽）
+  recordMaxPartSize: 50M
+  # 每个录制段的最小时长
+  recordSegmentDuration: 1h
+  # 录制文件保留时间（0s 表示不自动删除）
+  recordDeleteAfter: 0s
+
+  ###############################################
+  # 发布者配置（当 source 为 "publisher" 时）
+
+  # 是否允许其他客户端断开当前发布者并替代它
+  overridePublisher: yes
+  # SRT 加密密码（用于发布到此路径）
+  srtPublishPassphrase:
+
+  ###############################################
+  # RTSP 源配置（当 source 是 RTSP URL 时）
+
+  # 拉流使用的传输协议: "automatic", "udp", "multicast", "tcp"
+  rtspTransport: automatic
+  # 是否支持不提供服务器端口或使用随机端口的源
+  rtspAnyPort: no
+  # Range header 类型: "clock", "npt", "smpte"
+  rtspRangeType:
+  rtspRangeStart:
+
+  ###############################################
+  # Redirect 源配置（当 source 为 "redirect" 时）
+
+  # 客户端将被重定向到的路径
+  sourceRedirect:
+
+  ###############################################
+  # Hooks 钩子配置
+
+  # 路径初始化时执行的命令
+  runOnInit:
+  runOnInitRestart: no
+
+  # 当有读取者请求路径但无人发布时执行的命令
+  runOnDemand:
+  runOnDemandRestart: no
+  runOnDemandStartTimeout: 10s
+  runOnDemandCloseAfter: 10s
+  runOnUnDemand:
+
+  # 当流准备好可读时执行的命令
+  runOnReady:
+  runOnReadyRestart: no
+  runOnNotReady:
+
+  # 当客户端开始读取时执行的命令
+  runOnRead:
+  runOnReadRestart: no
+  runOnUnread:
+
+  # 录制段创建/完成时执行的命令
+  runOnRecordSegmentCreate:
+  runOnRecordSegmentComplete:
+
+  ###############################################
+  # Pro 版本扩展配置
+
+  # 自动清理超出天数前的录制文件，单位天数，0 表示不清理
+  recordClearDaysAgo: 10
+  # 录制创建回调
+  recordCreateWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/insert/1001
+  # 录制删除回调
+  recordDelWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/file/del
+
+  # 缩略图尺寸
+  thumbnailSize: 300
+
+  # 自动截图开关
+  videoSnapshotEnable: no
+  # 自动截图模块路径
+  videoSnapshotModulePath: /Users/xlt/workspace/Release/Autosnap/snapshot.launcher
+
+###############################################
+# 路径配置
+# paths 中的配置应用于特定路径，map 的 key 是路径名
+# pathDefaults 中的任何配置都可以在这里覆盖
+# 支持正则表达式（使用 ~ 作为前缀）
+
+paths:
+  # 内镜3 直播流配置
+  livedemo3:
+    # 流地址
+    source: rtsp://192.168.3.147/stream0
+    # 名称
+    sourceName: 内镜3
+    # 是否按需
+    sourceOnDemand: no
+    # 组名
+    groupName: 内镜
+    # 裁剪区域 x,y,w,h
+    cut: [0, 0, 1300, 1080]
+    # 截图后图片后处理：亮度 -100 to 100
+    brightness: 20
+    # 截图后图片后处理：对比度 -100 to 100
+    contrast: 30
+    # 截图后图片后处理：饱和度 -100 to 100
+    saturation: 30
+    # 自动化录制开关
+    record: yes
+    # 自动识别图片区域留图开关
+    videoSnapshotEnable: yes
+    # 自动识别图片区域留图配置文件
+    videoSnapshotPipelineConf: AB-290.json
+
+  # "all_others" 路径下的配置应用于所有未匹配其他规则的路径
+  all_others:

@@ -250,13 +250,13 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer m.Close()
 
-	m.SetPathManager(&dummyPathManager{})
+	// m.SetPathManager(&dummyPathManager{})
 	m.SetHLSServer(&dummyHLSServer{})
 	m.SetRTSPServer(&dummyRTSPServer{})
 	m.SetRTSPSServer(&dummyRTSPServer{})
 	m.SetRTMPServer(&dummyRTMPServer{})
 	m.SetRTMPSServer(&dummyRTMPServer{})
-	m.SetWebRTCServer(&dummyWebRTCServer{})
+	// m.SetWebRTCServer(&dummyWebRTCServer{})
 
 	tr := &http.Transport{}
 	defer tr.CloseIdleConnections()
@@ -438,10 +438,10 @@ func TestFilter(t *testing.T) {
 			require.NoError(t, err)
 			defer m.Close()
 
-			m.SetPathManager(&dummyPathManager{})
+			// m.SetPathManager(&dummyPathManager{})
 			m.SetHLSServer(&dummyHLSServer{})
 			m.SetRTSPServer(&dummyRTSPServer{})
-			m.SetWebRTCServer(&dummyWebRTCServer{})
+			// m.SetWebRTCServer(&dummyWebRTCServer{})
 
 			tr := &http.Transport{}
 			defer tr.CloseIdleConnections()

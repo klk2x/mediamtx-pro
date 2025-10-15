@@ -20,6 +20,7 @@ import (
 	sssrt "github.com/bluenviron/mediamtx/internal/staticsources/srt"
 	sswebrtc "github.com/bluenviron/mediamtx/internal/staticsources/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/pro/rvideo"
 )
 
 const (
@@ -148,6 +149,14 @@ func (s *Handler) Initialize() {
 		s.instance = &ssrtp.Source{
 			ReadTimeout: s.ReadTimeout,
 			Parent:      s,
+		}
+
+	case strings.HasPrefix(s.Conf.Source, "r-video://"):
+		s.instance = &rvideo.Source{
+			ReadTimeout:    s.ReadTimeout,
+			WriteTimeout:   s.WriteTimeout,
+			WriteQueueSize: s.WriteQueueSize,
+			Parent:         s,
 		}
 
 	case s.Conf.Source == "rpiCamera":
@@ -330,4 +339,12 @@ func (s *Handler) SetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 // AddReader is called by a staticSource.
 func (s *Handler) AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 	return s.PathManager.AddReader(req)
+}
+
+// RestartVideoSnapshot restarts the video snapshot server if the instance is an RTSP source.
+func (s *Handler) RestartVideoSnapshot() error {
+	if rtspSource, ok := s.instance.(*ssrtsp.Source); ok {
+		return rtspSource.RestartVideoSnapshot()
+	}
+	return fmt.Errorf("video snapshot restart is only supported for RTSP sources")
 }

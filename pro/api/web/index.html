@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaMTX Pro - 管理控制台</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .logo-text h1 {
+            font-size: 1.5rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .logo-text p {
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .nav {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            padding: 0.5rem 1rem;
+            color: #666;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: #f0f0f0;
+            color: #667eea;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            flex: 1;
+        }
+
+        .welcome-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .welcome-card h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .welcome-card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card:nth-child(1) .stat-icon {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .stat-card:nth-child(2) .stat-icon {
+            background: rgba(118, 75, 162, 0.1);
+            color: #764ba2;
+        }
+
+        .stat-card:nth-child(3) .stat-icon {
+            background: rgba(52, 211, 153, 0.1);
+            color: #34d399;
+        }
+
+        .stat-card:nth-child(4) .stat-icon {
+            background: rgba(251, 146, 60, 0.1);
+            color: #fb923c;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .quick-actions {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .quick-actions h3 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .action-btn {
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .footer {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            text-align: center;
+            color: #666;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">M</div>
+                <div class="logo-text">
+                    <h1>MediaMTX Pro</h1>
+                    <p>专业版管理控制台</p>
+                </div>
+            </div>
+            <nav class="nav">
+                <a href="/admin/" class="nav-link">控制台</a>
+                <a href="/v2/dashboard" class="nav-link">仪表板</a>
+                <a href="/docs" class="nav-link">API 文档</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="welcome-card">
+            <h2>👋 欢迎使用 MediaMTX Pro</h2>
+            <p>MediaMTX Pro 是一个功能强大的流媒体服务器，支持 RTSP、RTMP、WebRTC、HLS 等多种协议。</p>
+            <p>通过此管理控制台，您可以轻松管理流媒体路径、查看实时统计数据、配置录制任务等。</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📹</div>
+                <div class="stat-label">活跃路径</div>
+                <div class="stat-value" id="pathCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-label">在线观众</div>
+                <div class="stat-value" id="readerCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-label">录制任务</div>
+                <div class="stat-value" id="recordCount">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-label">磁盘空间</div>
+                <div class="stat-value" id="diskUsage">-</div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <h3>⚡ 快速操作</h3>
+            <div class="action-buttons">
+                <a href="/v2/paths/list" class="action-btn">查看所有路径</a>
+                <a href="/v2/record/tasks" class="action-btn">录制任务管理</a>
+                <a href="/v2/dashboard" class="action-btn">系统仪表板</a>
+                <a href="/v2/config/global/get" class="action-btn">全局配置</a>
+                <a href="/docs" class="action-btn">API 文档</a>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2025 MediaMTX Pro. Powered by MediaMTX.</p>
+    </footer>
+
+    <script>
+        // 加载统计数据
+        async function loadStats() {
+            try {
+                const response = await fetch('/v2/dashboard');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('pathCount').textContent = data.pathCount || '0';
+
+                    // 计算磁盘使用率
+                    if (data.diskStatus) {
+                        const usedGB = (data.diskStatus.used / 1024 / 1024 / 1024).toFixed(1);
+                        const totalGB = (data.diskStatus.all / 1024 / 1024 / 1024).toFixed(1);
+                        const percent = ((data.diskStatus.used / data.diskStatus.all) * 100).toFixed(1);
+                        document.getElementById('diskUsage').textContent = percent + '%';
+                    }
+                }
+
+                // 加载录制任务
+                const recordResponse = await fetch('/v2/record/tasks');
+                if (recordResponse.ok) {
+                    const recordData = await recordResponse.json();
+                    document.getElementById('recordCount').textContent = recordData.length || '0';
+                }
+
+                // 加载路径信息计算观众数
+                const pathsResponse = await fetch('/v2/paths/list');
+                if (pathsResponse.ok) {
+                    const pathsData = await pathsResponse.json();
+                    let totalReaders = 0;
+                    if (pathsData.items) {
+                        pathsData.items.forEach(path => {
+                            totalReaders += (path.readers || []).length;
+                        });
+                    }
+                    document.getElementById('readerCount').textContent = totalReaders;
+                }
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // 页面加载时获取数据
+        loadStats();
+
+        // 每30秒刷新一次
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>

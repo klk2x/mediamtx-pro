@@ -3,15 +3,26 @@ package defs
 import (
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // APIPathManager contains methods used by the API and Metrics server.
 type APIPathManager interface {
 	APIPathsList() (*APIPathList, error)
 	APIPathsGet(string) (*APIPath, error)
+	// GetStreamForRecording returns the stream for a given path name.
+	// This is used by the Pro recorder to access the stream for recording.
+	GetStreamForRecording(pathName string) (interface{}, error)
+	// AddReader is called by a reader to access a path.
+	// This is the standard MediaMTX way to access paths.
+	AddReader(req PathAddReaderReq) (Path, *stream.Stream, error)
+	// RestartVideoSnapshot restarts the video snapshot server for a given path.
+	// This is called when the snapshot pipeline configuration file is updated via the API.
+	RestartVideoSnapshot(pathName string) error
 }
 
 // APIHLSServer contains methods used by the API and Metrics server.
@@ -48,6 +59,7 @@ type APIWebRTCServer interface {
 	APISessionsList() (*APIWebRTCSessionList, error)
 	APISessionsGet(uuid.UUID) (*APIWebRTCSession, error)
 	APISessionsKick(uuid.UUID) error
+	GetHTTPHandler() func(*gin.Context)
 }
 
 // APIError is a generic error.

@@ -17,6 +17,7 @@ import (
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~:]+$`)
 
+
 // IsValidPathName checks whether the path name is valid.
 func IsValidPathName(name string) error {
 	if name == "" {
@@ -229,6 +230,24 @@ type Path struct {
 	RunOnUnread                string   `json:"runOnUnread"`
 	RunOnRecordSegmentCreate   string   `json:"runOnRecordSegmentCreate"`
 	RunOnRecordSegmentComplete string   `json:"runOnRecordSegmentComplete"`
+
+	// Pro Extension
+	RecordClearDaysAgo          int      `json:"recordClearDaysAgo"`
+	RecordCreateWebhook         string   `json:"recordCreateWebhook"`
+	RecordDelWebhook            string   `json:"recordDelWebhook"`
+	ThumbnailSize               int      `json:"thumbnailSize"`
+	VideoSnapshotEnable         bool     `json:"videoSnapshotEnable"`
+	VideoSnapshotModulePath     string   `json:"videoSnapshotModulePath"`
+	VideoSnapshotPipelineConf   *string  `json:"videoSnapshotPipelineConf,omitempty"`   // 自动识别图片区域留图配置文件
+	SourceName                  *string  `json:"sourceName,omitempty"`                  // 流名称
+	GroupName                   *string  `json:"groupName,omitempty"`                   // 组名
+	Cut                         *[4]int  `json:"cut,omitempty"`                         // 裁剪区域 [x,y,w,h]
+	Brightness                  *int     `json:"brightness,omitempty"`                  // 亮度调整 -100 to 100
+	Contrast                    *int     `json:"contrast,omitempty"`                    // 对比度调整 -100 to 100
+	Saturation                  *int     `json:"saturation,omitempty"`                  // 饱和度调整 -100 to 100
+	AutoRecordTaskOutDuration   Duration `json:"autoRecordTaskOutDuration"`             // 自动录制的最大时长（默认30分钟）
+	ShowList                    bool     `json:"showList"`                              // 是否在列表中显示
+	Order                       int      `json:"order"`                                 // 排序顺序
 }
 
 func (pconf *Path) setDefaults() {
@@ -238,7 +257,7 @@ func (pconf *Path) setDefaults() {
 	pconf.SourceOnDemandCloseAfter = 10 * Duration(time.Second)
 
 	// Record
-	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
+	pconf.RecordPath = "./recordings"
 	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = Duration(1 * time.Second)
 	pconf.RecordMaxPartSize = 50 * 1024 * 1024
@@ -276,6 +295,14 @@ func (pconf *Path) setDefaults() {
 	// Hooks
 	pconf.RunOnDemandStartTimeout = 10 * Duration(time.Second)
 	pconf.RunOnDemandCloseAfter = 10 * Duration(time.Second)
+
+	// Pro Extension
+	pconf.RecordClearDaysAgo = 10
+	pconf.ThumbnailSize = 300
+	pconf.VideoSnapshotEnable = false
+	pconf.AutoRecordTaskOutDuration = 30 * Duration(time.Minute) // 默认30分钟
+	pconf.ShowList = true                                         // 默认显示在列表中
+	pconf.Order = 0                                               // 默认排序为0
 }
 
 func newPath(defaults *Path, partial *OptionalPath) *Path {
@@ -652,22 +679,28 @@ func (pconf *Path) validate(
 		l.Log(logger.Warn, "parameter 'playback' is deprecated and has no effect")
 	}
 
-	if !strings.Contains(pconf.RecordPath, "%path") {
-		return fmt.Errorf("'recordPath' must contain %%path")
-	}
+	// Only validate recordPath format when it contains template variables
+	// This allows Pro recorder API to use simple paths like "./recordings"
+	hasTemplateVars := strings.Contains(pconf.RecordPath, "%")
 
-	if !strings.Contains(pconf.RecordPath, "%s") &&
-		(!strings.Contains(pconf.RecordPath, "%Y") ||
-			!strings.Contains(pconf.RecordPath, "%m") ||
-			!strings.Contains(pconf.RecordPath, "%d") ||
-			!strings.Contains(pconf.RecordPath, "%H") ||
-			!strings.Contains(pconf.RecordPath, "%M") ||
-			!strings.Contains(pconf.RecordPath, "%S")) {
-		return fmt.Errorf("'recordPath' must contain either %%s or %%Y %%m %%d %%H %%M %%S")
-	}
+	if hasTemplateVars {
+		if !strings.Contains(pconf.RecordPath, "%path") {
+			return fmt.Errorf("'recordPath' must contain %%path")
+		}
 
-	if conf.Playback && !strings.Contains(pconf.RecordPath, "%f") {
-		return fmt.Errorf("'recordPath' must contain %%f")
+		if !strings.Contains(pconf.RecordPath, "%s") &&
+			(!strings.Contains(pconf.RecordPath, "%Y") ||
+				!strings.Contains(pconf.RecordPath, "%m") ||
+				!strings.Contains(pconf.RecordPath, "%d") ||
+				!strings.Contains(pconf.RecordPath, "%H") ||
+				!strings.Contains(pconf.RecordPath, "%M") ||
+				!strings.Contains(pconf.RecordPath, "%S")) {
+			return fmt.Errorf("'recordPath' must contain either %%s or %%Y %%m %%d %%H %%M %%S")
+		}
+
+		if conf.Playback && !strings.Contains(pconf.RecordPath, "%f") {
+			return fmt.Errorf("'recordPath' must contain %%f")
+		}
 	}
 
 	if pconf.RecordSegmentDuration > Duration(24*time.Hour) { // avoid overflowing DurationV0 of mvhd

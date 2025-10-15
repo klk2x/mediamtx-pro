@@ -26,7 +26,7 @@ func (d *destinationSysLog) log(t time.Time, level Level, format string, args ..
 	d.buf.Reset()
 	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)
-	writeContent(&d.buf, format, args)
+	writeContent(&d.buf, format, args, false)
 	d.syslog.Write(d.buf.Bytes()) //nolint:errcheck
 }
 

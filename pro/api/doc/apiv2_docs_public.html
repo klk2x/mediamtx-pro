@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <script src="mrls.js"></script>
+    <style>
+        /* Reset and Base Styles */
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-size: 15px;
+            font-family: monospace, Monaco, courier;
+            color: #495057;
+            background-color: #f8f9fa;
+        }
+
+        .page {
+            max-width: 100%;
+            padding: 2rem;
+        }
+
+        /* Grid System */
+        .grid {
+            display: flex;
+            flex-wrap: wrap;
+            margin-right: -0.5rem;
+            margin-left: -0.5rem;
+        }
+
+        [class*="col-"] {
+            padding-right: 0.5rem;
+            padding-left: 0.5rem;
+        }
+
+        .col-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+
+        .col-9 {
+            flex: 0 0 75%;
+            max-width: 75%;
+        }
+
+        .col-12 {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+
+        /* Responsive Grid */
+        @media (min-width: 992px) {
+            .lg\:col-4 {
+                flex: 0 0 33.333333%;
+                max-width: 33.333333%;
+            }
+        }
+
+        @media (max-width: 991px) {
+            .col-3,
+            .col-9 {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+        }
+
+        /* Spacing Utilities */
+        .m-0 { margin: 0; }
+        .mt-2 { margin-top: 0.5rem; }
+        .mt-4 { margin-top: 1rem; }
+        .mb-0 { margin-bottom: 0; }
+        .p-0 { padding: 0; }
+        .p-2 { padding: 0.5rem; }
+        .p-3 { padding: 1rem; }
+        .px-3 { padding-left: 1rem; padding-right: 1rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+
+        /* Display Utilities */
+        .flex { display: flex; }
+        .flex-column { flex-direction: column; }
+
+        /* Layout Utilities */
+        .h-full { height: 100%; }
+
+        /* Background Colors */
+        .bg-white {
+            background-color: #ffffff;
+        }
+
+        .bg-primary-500 {
+            background-color: #2196f3;
+        }
+
+        .surface-card {
+            background-color: #ffffff;
+        }
+
+        .surface-overlay {
+            background-color: #ffffff;
+        }
+
+        .surface-border {
+            border-color: #dee2e6;
+        }
+
+        /* Text Colors */
+        .text-color {
+            color: #495057;
+        }
+
+        .text-600 {
+            color: #495057;
+        }
+
+        .text-base {
+            font-size: 1rem;
+        }
+
+        .text-white {
+            color: #ffffff;
+        }
+
+        /* Border Utilities */
+        .border-1 {
+            border-width: 1px;
+        }
+
+        .border-solid {
+            border-style: solid;
+        }
+
+        .border-primary-500 {
+            border-color: #2196f3;
+        }
+
+        .border-round {
+            border-radius: 0.25rem;
+        }
+
+        .rounded {
+            border-radius: 0.25rem;
+        }
+
+        /* Shadow Utilities */
+        .shadow-sm {
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .shadow-2 {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Interactive Utilities */
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .appearance-none {
+            appearance: none;
+        }
+
+        .outline-none {
+            outline: none;
+        }
+
+        .transition-all {
+            transition: all 0.2s ease;
+        }
+
+        .transition-duration-200 {
+            transition-duration: 200ms;
+        }
+
+        /* Card Styles */
+        .card {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Button Hover States */
+        button:hover,
+        a.text-white:hover {
+            opacity: 0.9;
+        }
+
+        .hover\:bg-primary-600:hover {
+            background-color: #1976d2;
+        }
+
+        /* Focus States */
+        input:focus,
+        button:focus {
+            outline: 2px solid #2196f3;
+            outline-offset: 2px;
+        }
+
+        .focus\:border-primary:focus {
+            border-color: #2196f3;
+        }
+
+        /* Text Decoration */
+        a {
+            text-decoration: none;
+            color: #2196f3;
+        }
+
+        /* Common Button/Link Styles */
+        button,
+        a[class*="bg-primary"] {
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            user-select: none;
+            text-decoration: none;
+        }
+
+        pre[class*="language-"] {
+            margin: 0 !important;
+        }
+
+        pre[class*="language-"]:before,
+        pre[class*="language-"]:after {
+            display: none !important;
+        }
+
+        pre[class*="language-"] code {
+            border-left: 0 none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            margin: 0;
+            color: #495057;
+            font-size: 14px;
+            padding: 0 1rem !important;
+        }
+
+        pre[class*="language-"] code .token.tag,
+        pre[class*="language-"] code .token.keyword {
+            color: #2196f3 !important;
+        }
+
+        pre[class*="language-"] code .token.attr-name,
+        pre[class*="language-"] code .token.attr-string {
+            color: #2196f3 !important;
+        }
+
+        pre[class*="language-"] code .token.attr-value {
+            color: #4caf50 !important;
+        }
+
+        pre[class*="language-"] code .token.punctuation {
+            color: #495057;
+        }
+
+        pre[class*="language-"] code .token.operator,
+        pre[class*="language-"] code .token.string {
+            background: transparent;
+        }
+
+        @media screen and (max-width: 575px) {
+            .block-header {
+                flex-direction: column;
+                align-items: start;
+            }
+
+            .block-header .block-actions {
+                margin-top: 1rem;
+                margin-left: 0;
+            }
+        }
+
+        .list-group {
+            display: flex;
+            flex-direction: column;
+            padding-left: 0;
+            margin-bottom: 0;
+            border-radius: 0.25rem;
+        }
+
+        .list-group-item {
+            position: relative;
+            display: block;
+            padding: 0.5rem 1rem;
+            font-size: 16px;
+            color: #212529;
+            text-decoration: none;
+            background-color: #fff;
+            /* border-bottom: 1px solid rgba(0,0,0,.125); */
+        }
+
+        pre[class*="language-"] {
+            position: relative;
+            margin: 0.5em 0;
+            overflow: visible;
+            padding: 0;
+        }
+
+        pre[class*="language-"] {
+            background-color: #fdfdfd;
+            box-sizing: border-box;
+            margin-bottom: 1em;
+            /* border: 1px solid red; */
+        }
+
+        .request {
+            background-color: #dee2e6 !important;
+            color: #495057;
+            border-radius: 2px;
+            padding: 0.35rem 0.5rem;
+        }
+
+        code[class*="language-"],
+        pre[class*="language-"] {
+            color: #000;
+            background: none;
+            font-family: Consolas, Monaco, Andale Mono, Ubuntu Mono, monospace;
+            text-align: left;
+            white-space: pre;
+            word-spacing: normal;
+            word-break: normal;
+            word-wrap: normal;
+            line-height: 1.5;
+            -moz-tab-size: 4;
+            -o-tab-size: 4;
+            tab-size: 4;
+            -webkit-hyphens: none;
+            -ms-hyphens: none;
+            hyphens: none;
+        }
+
+        pre[class*="language-"]:before,
+        pre[class*="language-"]:after {
+            display: none !important;
+        }
+
+        pre[class*="language-"] code {
+            position: relative;
+            border-left: 6px solid #383838 !important;
+            box-shadow: none !important;
+            background: #f8f9fa !important;
+            /* margin: 10px 0; */
+            color: #495057;
+            font-size: 14px;
+        }
+
+        code[class*="language-"] {
+            max-height: inherit;
+            padding: 0 1em;
+            display: block;
+            overflow: auto;
+        }
+
+        pre[class*="language-"] .token.tag,
+        pre[class*="language-"] .token.keyword {
+            color: #2196f3 !important;
+        }
+
+        pre[class*="language-"] .token.attr-name,
+        pre[class*="language-"] .token.attr-string {
+            color: #2196f3 !important;
+        }
+
+        pre[class*="language-"] .token.attr-value {
+            color: #4caf50 !important;
+        }
+
+        pre[class*="language-"] .token.punctuation {
+            color: #495057;
+        }
+
+        pre[class*="language-"] .token.operator,
+        pre[class*="language-"] .token.string {
+            background: transparent;
+        }
+
+        i:not([class~="pi"]) {
+            background-color: transparent;
+            color: #2196f3;
+            font-family: Monaco, courier, monospace;
+            font-style: normal;
+            font-size: 12px;
+            font-weight: 500;
+            padding: 0 4px;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin: 0 2px;
+            display: inline-flex;
+        }
+
+        a {
+            font-weight: 500;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table td {
+            padding: 0.75rem 1rem;
+        }
+
+        table thead td {
+            background-color: #54585d;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 13px;
+            border: 1px solid #54585d;
+        }
+
+        table tbody td {
+            color: #636363;
+            border: 1px solid #dddfe1;
+        }
+
+        table tbody tr {
+            background-color: #f9fafb;
+        }
+
+        table tbody tr:nth-child(odd) {
+            background-color: #ffffff;
+        }
+
+        /* video 16/9 */
+        .scale-video {
+            width: 100%;
+            padding-top: 56.25%;
+            position: relative;
+        }
+
+        .scale-video video,
+        .scale-video canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .item_doc {
+            margin-bottom: 3rem;
+        }
+
+        /* Enhanced Sidebar Styles */
+        .list-group h2 {
+            padding: 1rem;
+            margin: 0;
+            font-size: 1.5rem;
+            color: #2196f3;
+            border-bottom: 2px solid #2196f3;
+        }
+
+        .list-group h4 {
+            padding: 0.75rem 1rem 0.5rem;
+            margin: 1rem 0 0.5rem;
+            font-size: 1rem;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .list-group-item-action:hover {
+            background-color: #f8f9fa;
+        }
+
+        /* Improved Content Styles */
+        .item_doc h2 {
+            color: #2196f3;
+            border-bottom: 2px solid #2196f3;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .item_doc h5 {
+            color: #495057;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* Sticky Sidebar */
+        .col-3 > div {
+            position: sticky;
+            top: 2rem;
+            max-height: calc(100vh - 4rem);
+            overflow-y: auto;
+        }
+
+        /* Smooth Scrolling */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Input Styles */
+        input[type="text"] {
+            width: 100%;
+            max-width: 400px;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Improved Code Block Styling */
+        pre[class*="language-"] code {
+            border-left: 6px solid #2196f3 !important;
+        }
+
+        /* Enhanced Table Styling */
+        table {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Video Container Enhancement */
+        .scale-video {
+            background-color: #000;
+            border-radius: 0.25rem;
+            overflow: hidden;
+        }
+
+        /* Responsive Improvements */
+        @media (max-width: 991px) {
+            .col-3 > div {
+                position: static;
+                max-height: none;
+            }
+
+            .page {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main role="main">
+        <div class="page">
+            <div class="grid">
+                <div class="col-3">
+                    <div class="bg-white rounded shadow-sm">
+                        <div class="list-group list-group-flush text-600">
+                            <h2>文档</h2>
+                            <div class="">
+                                <h4>服务端调用</h4>
+                                <div class="list-group list-group-flush">
+                                    <a href="#开始" class="list-group-item list-group-item-action">开始</a>
+                                    <a href="#截图" class="list-group-item list-group-item-action">截图</a>
+                                    <a href="#录制" class="list-group-item list-group-item-action">录制</a>
+                                    <a href="#录制文件查询" class="list-group-item list-group-item-action">录制文件查询</a>
+                                    <a href="#影像查询" class="list-group-item list-group-item-action">影像查询</a>
+                                </div>
+                                <h4>监听服务端消息</h4>
+                                <div class="list-group list-group-flush">
+                                    <a href="#监听视频流在线状态" class="list-group-item list-group-item-action">监听视频流在线状态</a>
+                                </div>
+                                <h4>客户端调用</h4>
+                                <div class="list-group list-group-flush">
+                                    <a href="#基于H5的截图和录制" class="list-group-item list-group-item-action">基于H5的截图和录制</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-9">
+                    <div class="card">
+                        <div class="card docs">
+                            <div class="item_doc" id="开始">
+                                <h2>开始</h2>
+                                <p>MRLS对外通过http提供能力及服务，服务请求地址同文档地址</p>
+                            </div>
+
+                            <div class="item_doc" id="截图">
+                                <h2>截图</h2>
+                                <!-- <h3>方法一</h3> -->
+                                <div class="mt-4">
+                                    <span class="request"><b>GET</b> /api/v2/snapshot</span>
+                                    <p>调用编码器能力进行截图，当编码器处于MRLS服务的局域网中可用。</p>
+                                    <p>互联网可以使用 <span class="request"><b>GET</b> /api/v2/publish/snapshot</span> 测试 </p>
+                                    </p>
+                                </div>
+                                <div class="mt-4">
+                                    <p>裁剪示例</b> <span class="request"><b>GET</b>
+                                            http://127.0.0.1:9997/api/v2/snapshot?name=proxied1&fileType=url&contrast=100&saturation=100&imageCopy={"x":100,"y":100,"w":100,"h":100}</span>
+                                    </p>
+                                    </p>
+                                    <p>可能需要转码</b> <span class="request"><b>GET</b>
+                                            &imageCopy=%7B%22x%22%3A100%2C%22y%22%3A100%2C%22w%22%3A100%2C%22h%22%3A100%7D</span>
+                                    </p>
+                                    </p>
+                                </div>
+
+                                <!-- <h3>方法二</h3>
+                                <div class="mt-4">
+                                    <span class="request"><b>GET</b> /api/v2/snapshot/box</span>
+                                    <p>调用编码器能力进行截图，当编码器处于MRLS服务的局域网中可用。</p>
+                                </div> -->
+
+                                <h5>参数说明</h5>
+                                <!-- <p>方法一，二请求参数相同</p> -->
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>是否必填</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>name</td>
+                                                <td>string</td>
+                                                <td>是</td>
+                                                <td>视频流的名称：视频流播放地址端口后为视频流的名称</td>
+                                            </tr>
+                                            <tr>
+                                                <td>fileType</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>返回的文件类型，可传：url,file,stream（默认值），不传则返回stream</td>
+                                            </tr>
+                                            <tr>
+                                                <td>fileName</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>自定义文件名，将创建文件夹分类</td>
+                                            </tr>
+                                            <tr>
+                                                <td>imageCopy</td>
+                                                <td>object</td>
+                                                <td>否</td>
+                                                <td>裁剪参数，x，y分别为起始x,y轴坐标；w,h分别为宽和高</td>
+                                            </tr>
+                                            <tr>
+                                                <td>brightness</td>
+                                                <td>int</td>
+                                                <td>否</td>
+                                                <td>亮度 -100 to 100</td>
+                                            </tr>
+                                            <tr>
+                                                <td>contrast</td>
+                                                <td>int</td>
+                                                <td>否</td>
+                                                <td>对比度 -100 to 100</td>
+                                            </tr>
+                                            <tr>
+                                                <td>saturation</td>
+                                                <td>int</td>
+                                                <td>否</td>
+                                                <td>饱和度 -100 to 100</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h5>成功响应示例</h5>
+                                <div class="mt-4">
+                                    <p>返回<b>original</b>为原始（未裁剪）图片</p>
+                                    <p>返回<b>thumbnail</b>为缩率图</p>
+                                </div>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "filePath": "/20230628/1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "fileURL": "http://192.168.31.111:9997/res/20230628/1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "filename": "1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "fullPath": "/tmp/record_res/20230628/1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "original": "1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "thumbnail": "thumbnail-1687955769124-hjqymgcxf8jsascyje2law.jpg",
+    "height": 1080,
+    "success": true,
+    "width": 1920
+}
+                    </code></pre>
+
+                                <h5>失败响应示例</h5>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "error": "no one is publishing to path 'live/ch11'"
+}                       
+        </code></pre>
+                            </div>
+                            <div class="item_doc" id="录制">
+                                <h2>录制</h2>
+                                <!-- <p>方法一二，请求响应相同</p> -->
+                                <!-- <h3>方法一</h3> -->
+                                <div class="mt-4">
+                                    <div class="mt-4">
+                                        开始录制：<span class="request"><b>POST</b> /api/v2/record/start</span>
+                                    </div>
+                                    <div class="mt-4">
+                                        停止录制：<span class="request"><b>POST</b> /api/v2/record/stop</span>
+                                    </div>
+
+                                </div>
+                                <!-- <h3>方法二：录制为ts文件</h3>
+                                <p class="text-red-500">区别于方法一，将采用原生方法录制，速度较方法一较快</p>
+                                <p class="text-red-500">videoFormat参数将非必填，传递videoFormat参数后，将在录制完成2分钟后进行单独转码，同时删除原ts文件，转码完成后可访问文件</p>
+                                <div class="mt-4">
+                                    <div class="mt-4">
+                                        开始录制：<span class="request"><b>POST</b> /api/v2/record/ts/start</span>
+                                    </div>
+                                    <div class="mt-4">
+                                        停止录制：<span class="request"><b>POST</b> /api/v2/record/ts/stop</span>
+                                    </div>
+                                    
+                                </div> -->
+
+
+                                <h5>开始录制参数</h5>
+
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>是否必填</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>name</td>
+                                                <td>string</td>
+                                                <td>是</td>
+                                                <td>视频流的名称：视频流播放地址端口后为视频流的名称</td>
+                                            </tr>
+                                            <tr>
+                                                <td>videoFormat</td>
+                                                <td>string</td>
+                                                <td>是</td>
+                                                <td>
+                                                    <div>文件格式，传：mp4或ts</div>
+                                                    <!-- <div class="text-red-500">方法二调用时，videoFormat参数非必填，传递videoFormat参数后，将在录制完成2分钟后进行单独转码，同时删除原ts文件，转码完成后可访问文件</div> -->
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>taskOutMinutes</td>
+                                                <td>float64</td>
+                                                <td>否</td>
+                                                <td>录制任务自动退出时间，单位分钟，默认30分钟，可以为小数；</td>
+                                            </tr>
+                                            <tr>
+                                                <td>fileName</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>自定义录制文件名，可选</td>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <h5>停止录制参数</h5>
+                                <!-- <p>方法一，二请求参数相同</p> -->
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>是否必填</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>name</td>
+                                                <td>string</td>
+                                                <td>是</td>
+                                                <td>视频流的名称：视频流播放地址端口后为视频流的名称</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <h5>开始录制响应说明</h5>
+                                <!-- <p>方法一，二响应相同</p> -->
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>filePath</td>
+                                                <td>string</td>
+                                                <td>录制文件的完整地址，可通过此地址下载</td>
+                                            </tr>
+                                            <tr>
+                                                <td>name</td>
+                                                <td>string</td>
+                                                <td>视频流的名称：视频流播放地址端口后为视频流的名称</td>
+                                            </tr>
+                                            <tr>
+                                                <td>taskEndTime</td>
+                                                <td>time</td>
+                                                <td>录制任务自动退出时间</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <h5>开始响应成功示例</h5>
+                                <p>当相同视频流重复调用录制时返回existed</p>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "existed": true,
+    "fileName": "1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "filePath": "/20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "fullPath": "/tmp/record_res/20230628/1687947856550-mvxegmxopbb7xqvvsh8akq.mp4",
+    "fileURL": "http://192.168.31.111:9997/res//20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "id": "6d177666-48de-4d7b-81b2-011b9f30500d",
+    "name": "proxied1",
+    "success": true,
+    "taskEndTime": "2023-06-28T12:30:29.090798+08:00"
+}
+                      </code></pre>
+                                <h5>开始录制失败响应示例</h5>
+                                <p>视频不存在</p>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "error": "no one is publishing to path 'live/ch11'"
+}
+                      </code></pre>
+                                <h5>停止录制成功响应示例</h5>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "fileName": "1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "filePath": "/20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "fullPath": "/tmp/record_res/20230628/1687947856550-mvxegmxopbb7xqvvsh8akq.mp4",
+    "fileURL": "http://192.168.31.111:9997/res//20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+    "name": "proxied1",
+    "success": true
+}                            
+                      </code></pre>
+
+                                <h5>停止录制失败响应示例</h5>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "error": "task id that does not exist"
+}     
+            </code></pre>
+                            </div>
+
+
+
+                            <div class="item_doc" id="录制文件查询">
+                                <h2>录制文件查询</h2>
+                                <div class="mt-4">
+                                    <span class="request"><b>GET</b> /api/v2/record/date/files</span>
+                                    <p>按天查询，当天所有的录制文件</p>
+                                </div>
+
+                                <h5>参数说明</h5>
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>是否必填</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>date</td>
+                                                <td>time</td>
+                                                <td>否</td>
+                                                <td>日期（天）</td>
+                                            </tr>
+                                        </tbody>
+                                        <tbody>
+                                            <tr>
+                                                <td>search</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>关键字搜索</td>
+                                            </tr>
+                                        </tbody>
+                                        <tbody>
+                                            <tr>
+                                                <td>fileType</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>文件类型支持：.jpg .mp4</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h5>响应成功示例</h5>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "result": [
+        {
+            "fileURL": "http://192.168.31.111:9997/res/20230628/1687924307146-6phssfga5kbdvyrymtvsy.jpg",
+            "name": "1687924307146-6phssfga5kbdvyrymtvsy.jpg",
+            "fullPath": "/tmp/record_res/20230628/1687924307146-6phssfga5kbdvyrymtvsy.jpg",
+            "filePath": "/20230628/1687924307146-6phssfga5kbdvyrymtvsy.jpg",
+            "size": 94572,
+            "modTime": "2023-06-28T11:51:47.147599796+08:00"
+        },
+        {
+            "fileURL": "http://192.168.31.111:9997/res/20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+            "name": "1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+            "fullPath": "/tmp/record_res/20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+            "filePath": "/20230628/1687924829090-d2vxqnhygqjmyvenzztey8.mp4",
+            "size": 7109798,
+            "modTime": "2023-06-28T12:01:14.670737876+08:00"
+        }
+    ],
+    "success": true
+}
+                    </code></pre>
+                            </div>
+
+
+                            <div class="item_doc" id="影像查询">
+                                <h2>影像查询</h2>
+                                <div class="mt-4">
+                                    <span class="request"><b>GET</b> /api/v2/paths/list</span>
+                                    <p>查询当前服务所有的影像</p>
+                                </div>
+
+                                <h5>参数说明</h5>
+                                <!-- <p>方法一，二请求参数相同</p> -->
+                                <div class="mt-4">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <td>参数名</td>
+                                                <td>数据类型</td>
+                                                <td>是否必填</td>
+                                                <td>说明</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>name</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>视频流名称=查询，对应流name属性</td>
+                                            </tr>
+                                            <tr>
+                                                <td>group</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>分组名=查询，对应流中groupName属性</td>
+                                            </tr>
+                                            <tr>
+                                                <td>sourceName</td>
+                                                <td>string</td>
+                                                <td>否</td>
+                                                <td>sourceName模糊查询，对应流中sourceName属性</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="mt-4"></div>
+                                    <p>示例</b> <span class="request"><b>GET</b>
+                                        http://127.0.0.1:9997/api/v2/paths/list?name=live01&group=内镜&sourceName=1</span>
+                                    </p>
+                                </div>
+
+                                <h5>响应成功示例</h5>
+                                <p>name：影像名称， 可以用来查询及播放</p>
+                                <p>sourceReady：在线状态，true表示在线</p>
+                                <p>taskEndTime：不为空则表示有未结束的录制任务</p>
+                                <pre v-code.json class="language-markup"><code class="language-markup">
+{
+    "result": [
+        {
+            "name": "live01",
+            "confName": "live01",
+            "sourceName": "内镜1",
+            "source": "",
+            "sourceReady": false,
+            "tracks": [],
+            "bytesReceived": 0,
+            "readers": [],
+            "taskEndTime": null,
+            "order": 0,
+            "groupName": "内镜",
+            "showList": true
+        },
+        {
+            "name": "live02",
+            "confName": "live02",
+            "sourceName": "超声",
+            "source": "",
+            "sourceReady": false,
+            "tracks": [],
+            "bytesReceived": 0,
+            "readers": [],
+            "taskEndTime": null,
+            "order": 0,
+            "groupName": null,
+            "showList": true
+        }
+    ],
+    "success": true
+}
+                    </code></pre>
+                            </div>
+
+
+
+                            <div class="item_doc" id="监听视频流在线状态">
+                                <h2>监听视频流在线状态</h2>
+
+                                <h5>示例及代码</h5>
+                                <span>打开debug页面可查看监听消息</span>
+                                <pre v-code.js class="language-markup"><code class="language-markup">
+// 创建WebSocket实例
+const socket = new WebSocket(`ws://${location.hostname}:${location.port}/ws`);
+    
+// 监听WebSocket的打开事件
+socket.addEventListener('open', function (event) {
+    console.log('WebSocket 连接已打开。');
+});
+    
+// 监听WebSocket的消息事件
+socket.addEventListener('message', function (event) {
+    console.log('收到消息:', event.data);
+});
+                                                          </code></pre>
+                                                          <h5>消息示例</h5>
+                                                          <pre v-code.json class="language-markup"><code class="language-markup">
+{   
+    "name":"linktime",
+    "sourceReady":false
+}
+                                                                                </code></pre>
+                            </div>
+
+                            <div class="item_doc" id="基于H5的截图和录制">
+                                <h2>基于H5的截图和录制</h2>
+
+                                <h5>示例及代码</h5>
+                                <div class="grid">
+                                    <div class="col-12 lg:col-4 h-full">
+                                        <div class="p-0">
+                                            <div class="shadow-2 p-3 h-full flex flex-column surface-card"
+                                                style="border-radius: 6px">
+                                                <div class="scale-video">
+                                                    <video id="preview" muted controls autoplay playsinline></video>
+                                                </div>
+
+                                                <div class="mt-2">
+                                                    <label for="playName">视频流名称</label>
+                                                    <input id="playName" type="text"
+                                                        class="text-base text-color surface-overlay p-2 border-1 border-solid surface-border border-round appearance-none outline-none focus:border-primary" />
+                                                    <button onclick="play()" type="button"
+                                                        class="text-white bg-primary-500 border-primary-500 px-3 py-2 text-base border-1 border-solid border-round cursor-pointer transition-all transition-duration-200 hover:bg-primary-600">
+                                                        播放
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 lg:col-4 h-full">
+                                        <div class="p-0">
+                                            <div class="shadow-2 p-3 h-full flex flex-column surface-card"
+                                                style="border-radius: 6px">
+                                                <div class="scale-video">
+                                                    <canvas id="canvas"
+                                                        style="overflow:auto;border:1px solid #999;"></canvas>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <button type="button" onclick="captureSnapshot()"
+                                                        class="text-white bg-primary-500 border-primary-500 px-3 py-2 text-base border-1 border-solid border-round cursor-pointer transition-all transition-duration-200 hover:bg-primary-600">
+                                                        截图
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 lg:col-4 h-full">
+                                        <div class="p-0">
+                                            <div class="shadow-2 p-3 h-full flex flex-column surface-card"
+                                                style="border-radius: 6px">
+                                                <div class="scale-video">
+                                                    <video id="recording" controls></video>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <button type="button" onclick="startRecording()"
+                                                        class="text-white bg-primary-500 border-primary-500 px-3 py-2 text-base border-1 border-solid border-round cursor-pointer transition-all transition-duration-200 hover:bg-primary-600">
+                                                        开始录制 5s
+                                                    </button>
+                                                    <button type="button" onclick="stopRecording()"
+                                                        class="text-white bg-primary-500 border-primary-500 px-3 py-2 text-base border-1 border-solid border-round cursor-pointer transition-all transition-duration-200 hover:bg-primary-600">
+                                                        停止录制
+                                                    </button>
+                                                    <a id="downloadButton" type="button"
+                                                        class="text-white bg-primary-500 border-primary-500 px-3 py-2 text-base border-1 border-solid border-round cursor-pointer transition-all transition-duration-200 hover:bg-primary-600">
+                                                        下载
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+
+                                </div>
+
+
+                                <h5>播放</h5>
+                                </h5>
+                                <p>引入mrls.js，调用playStreaming方法</p>
+                                <p>或如：<span class="request"> http://127.0.0.1:18889/live/ch11/?controls=enable</span>
+                                    controls=enable 表示显示控制</p>
+                                <pre v-code.js class="language-markup"><code class="language-markup">
+const server = MRLS.init(`http://${window.location.hostname}:18889`);
+const preview = document.getElementById("preview");
+server.playStreaming(
+    { 
+        pathName: "pathName", 
+        videoElement: preview, 
+        autoRestart: true, 
+        restartPause: 3000
+    }
+);
+                              </code></pre>
+
+                                <h5>截图代码示例</h5>
+                                <p>将视频流绘制到canvas，再通过canvas导出为图片</p>
+                                <pre v-code.js class="language-markup"><code class="language-markup">
+function captureSnapshot() {
+    var preview = document.getElementById("preview");
+    var canvas = document.getElementById("canvas");
+
+    canvas.width = preview.videoWidth;
+    canvas.height = preview.videoHeight;
+    canvas
+        .getContext("2d")
+        .drawImage(preview, 0, 0, preview.videoWidth, preview.videoHeight);
+
+    const playImage = new Image();
+    playImage.onload = () => {
+        const startX = preview.videoWidth / 2 - playImage.width / 2;
+        const startY = preview.videoHeight / 2 - playImage.height / 2;
+        canvas
+            .getContext("2d")
+            .drawImage(playImage, startX, startY, playImage.width, playImage.height);
+        canvas.toBlob() = (blob) => {
+            const img = new Image();
+            img.src = window.URL.createObjectUrl(blob);
+        };
+    };
+}
+                                                          </code></pre>
+                            </div>
+
+                            
+                            <h5>录制代码示例</h5>
+                            <p>通过MediaRecorder的接口能力实现录制，详细实现可通过查看源代码查看</p>
+                            <pre v-code.js class="language-markup"><code class="language-markup">
+const options = {
+    audioBitsPerSecond: 128000,
+    videoBitsPerSecond: 2500000,
+    mimeType: "video/mp4",
+};
+const stream = preview.captureStream();
+const recorder = new MediaRecorder(stream, options);
+// …
+                                                          </code></pre>
+                        </div>
+
+
+                        <!-- docs end -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </main>
+</body>
+<script>
+    const preview = document.getElementById("preview");
+    const recording = document.getElementById("recording");
+    const downloadButton = document.getElementById("downloadButton");
+    let recorder = null;
+    let chunks = [];
+    function play() {
+        const playName = document.getElementById("playName").value;
+
+        const server = MRLS.init(`http://${window.location.hostname}:18889`, {
+            token: "",
+        });
+        if (playName) {
+            server.playStreaming({ pathName: playName, videoElement: preview, autoRestart: false, restartPause: 3000 });
+        }
+    }
+
+    function captureSnapshot() {
+        var canvas = document.getElementById("canvas");
+
+        canvas.width = preview.videoWidth;
+        canvas.height = preview.videoHeight;
+        canvas
+            .getContext("2d")
+            .drawImage(preview, 0, 0, preview.videoWidth, preview.videoHeight);
+
+        const playImage = new Image();
+        playImage.onload = () => {
+            const startX = preview.videoWidth / 2 - playImage.width / 2;
+            const startY = preview.videoHeight / 2 - playImage.height / 2;
+            canvas
+                .getContext("2d")
+                .drawImage(playImage, startX, startY, playImage.width, playImage.height);
+            canvas.toBlob() = (blob) => {
+                const img = new Image();
+                img.src = window.URL.createObjectUrl(blob);
+            };
+        };
+    }
+
+    function stopRecording() {
+        console.log("stopRecording")
+        if (recorder.state === "recording") {
+            recorder.stop();
+        }
+
+        const blob = new Blob(chunks);
+        recording.src = URL.createObjectURL(blob);
+        downloadButton.href = recording.src;
+        downloadButton.download = "RecordedVideo.webm";
+
+    }
+    function wait(delayInMS) {
+        return new Promise((resolve) => setTimeout(resolve, delayInMS));
+    }
+
+    function startRecording() {
+        console.log("start Recording")
+        chunks = [];
+        // 
+        const lengthInMS = 5000;
+        const stream = preview.captureStream();
+        recorder = new MediaRecorder(stream);
+        downloadButton.href = stream;
+
+        recorder.ondataavailable = (event) => chunks.push(event.data);
+
+        recorder.start();
+
+        console.log(`${recorder.state} for ${lengthInMS / 1000} seconds…`);
+
+        recorder.onstop = stopRecording;
+
+        wait(lengthInMS).then(() => {
+            if (recorder.state === "recording") {
+                recorder.stop();
+            }
+        });
+    }
+
+    const socket = new WebSocket(`ws://${location.hostname}:${location.port}/ws`);
+
+    // 监听WebSocket的打开事件
+    socket.addEventListener('open', function (event) {
+        console.log('WebSocket 连接已打开。');
+    });
+    // 监听WebSocket的消息事件
+    socket.addEventListener('message', function (event) {
+        console.log('收到消息:', event.data);
+    });
+</script>
+
+</html>

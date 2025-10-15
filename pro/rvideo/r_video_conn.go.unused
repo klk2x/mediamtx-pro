@@ -1,0 +1,112 @@
+package rvideo
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
+	"strings"
+	"time"
+
+	"github.com/bluenviron/mediamtx/internal/log"
+)
+
+type RVideoConnection struct {
+	net.Conn
+	rtspUrl string
+	secret  []byte
+}
+
+func (p *RVideoConnection) Read(b []byte) (n int, err error) {
+	if n, err = p.Conn.Read(b); err != nil {
+		log.Errorf("err=%s", err)
+		p.closeRemote()
+		return
+	}
+
+	log.Debugf("[REMOTE] <<< [IN]: [%d]", n)
+	if strings.HasPrefix(string(b), "RTSP") {
+		log.Debugf("[REMOTE] <<< [IN]: [%s]", string(b[:n]))
+	}
+
+	return
+}
+
+func (p *RVideoConnection) Write(b []byte) (n int, err error) {
+	if n, err = p.Conn.Write(b); err != nil {
+		log.Errorf("err=%s", err)
+		p.closeRemote()
+		return
+	}
+
+	log.Debugf("[REMOTE] >>> [OUT]: [%d]", n)
+	log.Debugf("[REMOTE] >>> [OUT]: [%s]", string(b))
+	return
+}
+
+func (p *RVideoConnection) closeRemote() {
+	_ = p.Close()
+	//log.Infof("[STATE] closed source: %s", p.Id)
+}
+
+func (p *RVideoConnection) pokeSecret() []byte {
+	timestamp := time.Now().Unix()
+	str := fmt.Sprintf("timestamp=%d url=%s", timestamp, p.rtspUrl)
+	log.Infof("%s", str)
+
+	p.secret = []byte(str)
+
+	return p.secret
+}
+
+func (p *RVideoConnection) peekSecret() []byte {
+	return p.secret
+}
+
+func (p *RVideoConnection) requestSign() (err error) {
+	_, err = p.Write(p.pokeSecret())
+
+	return err
+}
+
+func (p *RVideoConnection) verifySign() (pass bool, err error) {
+	b := make([]byte, 1024)
+
+	var n int
+	if n, err = p.Read(b); err != nil {
+		log.Errorf("err=%s", err)
+		return false, err
+	}
+
+	pass = ED25519Verify(p.peekSecret(), b[:n])
+	return pass, nil
+}
+
+func (p *RVideoConnection) DailRemote(ctx context.Context, network, address string) (c net.Conn, err error) {
+	log.Infof("dail remote: %s, %s", network, address)
+	if p.Conn, err = net.Dial(network, address); err != nil {
+		log.Errorf("err=%s", err)
+		return nil, err
+	}
+
+	if err = p.requestSign(); err != nil {
+		return nil, err
+	}
+
+	var pass bool
+	if pass, err = p.verifySign(); err != nil {
+		return nil, err
+	}
+
+	if pass == false {
+		return nil, errors.New("verify fail")
+	}
+
+	return p, nil
+}
+
+func NewRVideoConnection(url string) (conn *RVideoConnection, err error) {
+	return &RVideoConnection{
+		rtspUrl: url,
+	}, nil
+}
