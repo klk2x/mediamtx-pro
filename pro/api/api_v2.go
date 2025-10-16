@@ -30,26 +30,26 @@ type apiParent interface {
 
 // APIV2 is the Pro version API server.
 type APIV2 struct {
-	Version        string
-	Started        time.Time
-	Address        string
-	Encryption     bool
-	ServerKey      string
-	ServerCert     string
-	AllowOrigin    string
-	TrustedProxies conf.IPNetworks
-	ReadTimeout    conf.Duration
-	WriteTimeout   conf.Duration
-	Conf           *conf.Conf
-	AuthManager    apiAuthManager
-	PathManager    defs.APIPathManager
-	RTSPServer     defs.APIRTSPServer
-	RTSPSServer    defs.APIRTSPServer
-	RTMPServer     defs.APIRTMPServer
-	RTMPSServer    defs.APIRTMPServer
-	WebRTCServer   defs.APIWebRTCServer
-	RecordManager   *recorder.Manager
-	Parent          apiParent
+	Version           string
+	Started           time.Time
+	Address           string
+	Encryption        bool
+	ServerKey         string
+	ServerCert        string
+	AllowOrigin       string
+	TrustedProxies    conf.IPNetworks
+	ReadTimeout       conf.Duration
+	WriteTimeout      conf.Duration
+	Conf              *conf.Conf
+	AuthManager       apiAuthManager
+	PathManager       defs.APIPathManager
+	RTSPServer        defs.APIRTSPServer
+	RTSPSServer       defs.APIRTSPServer
+	RTMPServer        defs.APIRTMPServer
+	RTMPSServer       defs.APIRTMPServer
+	WebRTCServer      defs.APIWebRTCServer
+	RecordManager     *recorder.Manager
+	Parent            apiParent
 	APIAuthMiddleware *APIKeyAuthMiddleware
 
 	httpServer *httpp.Server
@@ -73,7 +73,7 @@ func (a *APIV2) Initialize() error {
 	}
 
 	// V2 API Group
-	group := router.Group("/v2")
+	group := router.Group("/api/v2")
 
 	// Basic endpoints
 	group.GET("/info", a.onInfo)
