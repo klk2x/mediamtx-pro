@@ -6,6 +6,11 @@
 /internal/servers/hls/hls.min.js
 /internal/staticsources/rpicamera/mtxrpicam_*/
 /recordings
+/recordings.*
+*.mp4
+*.ts
+*.m3u8
+*.fmp4
 
 # Compiled binaries
 mediamtx
