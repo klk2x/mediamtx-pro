@@ -1,7 +1,9 @@
 package recorder
 
 import (
+	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,6 +29,8 @@ type Task struct {
 	Timeout        time.Duration
 	CustomFileName string
 	PathManager    defs.APIPathManager
+	PathConf       *conf.Path // Path-specific configuration (for sourceName)
+	PathDefaults   *conf.Path // PathDefaults configuration (for webhook URL)
 	Parent         taskParent
 	IsAutoRecord   bool // 是否为自动录制（true=自动录制，false=API调用）
 
@@ -44,10 +48,11 @@ type Task struct {
 	maxRetries    int                // 最大重试次数
 	retryInterval time.Duration      // 重试间隔
 
-	terminate      chan struct{}
-	done           chan struct{}
-	stopRequested  bool       // 标记是否有明确的外部 stop 调用
-	recorderErrors chan error // 录制器错误通道
+	terminate       chan struct{}
+	done            chan struct{}
+	stopRequested   bool       // 标记是否有明确的外部 stop 调用
+	recorderErrors  chan error // 录制器错误通道
+	webhookNotified bool       // 标记是否已经调用过 webhook
 }
 
 // Start starts the recording task.
@@ -160,6 +165,8 @@ func (t *Task) run() {
 			// 等待重试间隔或超时
 			select {
 			case <-time.After(t.retryInterval):
+				// 为重试生成新的文件名，避免覆盖已经完成的文件
+				t.generateNewFileName()
 				continue // 重试
 			case <-t.terminate:
 				t.Log(logger.Info, "recording terminated during retry wait for path '%s'", t.PathName)
@@ -213,6 +220,8 @@ func (t *Task) run() {
 			// 等待重试间隔
 			select {
 			case <-time.After(t.retryInterval):
+				// 为重试生成新的文件名，避免覆盖已经完成的文件
+				t.generateNewFileName()
 				continue // 重试
 			case <-t.terminate:
 				t.Log(logger.Info, "recording terminated during error retry wait for path '%s'", t.PathName)
@@ -280,6 +289,10 @@ func (t *Task) startRecorder() error {
 	}
 
 	t.Log(logger.Info, "recorder started successfully for path '%s'", t.PathName)
+
+	// Call webhook if configured (only once per task)
+	go t.callRecordCreateWebhook()
+
 	return nil
 }
 
@@ -292,5 +305,104 @@ func (t *Task) closeRecorders() {
 	if t.recorder != nil {
 		t.recorder.Close()
 		t.recorder = nil
+	}
+}
+
+// generateNewFileName 为重试生成新的文件名
+func (t *Task) generateNewFileName() {
+	// 如果使用自定义文件名，保留自定义名称但添加重试序号
+	if t.CustomFileName != "" {
+		ext := filepath.Ext(t.CustomFileName)
+		if ext == "" {
+			if t.Format == "ts" {
+				ext = ".ts"
+			} else {
+				ext = ".mp4"
+			}
+		}
+		baseName := t.CustomFileName
+		if filepath.Ext(t.CustomFileName) != "" {
+			baseName = t.CustomFileName[:len(t.CustomFileName)-len(ext)]
+		}
+		t.FileName = fmt.Sprintf("%s-retry%d%s", baseName, t.retryCount, ext)
+	} else {
+		// 自动生成的文件名，直接生成新的唯一文件名
+		t.FileName = generateFileName(t.Format)
+	}
+
+	// 重新生成路径
+	t.FullPath, t.RelativePath = generateFilePath(t.RecordPath, t.FileName)
+
+	// 确保目录存在
+	dir := filepath.Dir(t.FullPath)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		t.Log(logger.Warn, "failed to create directory for retry: %v", err)
+	}
+
+	t.Log(logger.Info, "generated new filename for retry: %s", t.FileName)
+}
+
+// callRecordCreateWebhook calls the record create webhook if configured.
+func (t *Task) callRecordCreateWebhook() {
+	// Check if webhook is configured in PathDefaults
+	if t.PathDefaults == nil || t.PathDefaults.RecordCreateWebhook == "" {
+		return
+	}
+
+	// Check if already notified
+	if t.webhookNotified {
+		return
+	}
+
+	// Mark as notified to avoid duplicate calls
+	t.webhookNotified = true
+
+	// Prepare resource name (use sourceName from path-specific config if available)
+	resName := t.FileName
+	if t.PathConf != nil && t.PathConf.SourceName != nil && *t.PathConf.SourceName != "" {
+		resName = *t.PathConf.SourceName + "-" + t.FileName
+	}
+
+	// Convert file path to slash format for consistency
+	filePath := filepath.ToSlash(t.RelativePath)
+
+	// Prepare JSON payload
+	jsonData := []byte(fmt.Sprintf(
+		`{"resType":"VIDEO","resId":0,"resName":"%s","resDesc":"%s","pathName":"%s","thumbnail":"","resPath":"%s"}`,
+		resName,
+		t.PathName,
+		t.PathName,
+		filePath,
+	))
+
+	t.Log(logger.Info, "calling record create webhook: %s", t.PathDefaults.RecordCreateWebhook)
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 1500 * time.Millisecond,
+	}
+
+	// Create POST request
+	req, err := http.NewRequest("POST", t.PathDefaults.RecordCreateWebhook, bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Log(logger.Error, "failed to create webhook request: %v", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+
+	// Send request
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Log(logger.Error, "webhook request failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		t.Log(logger.Info, "webhook called successfully, status: %d", resp.StatusCode)
+	} else {
+		t.Log(logger.Warn, "webhook returned non-success status: %d", resp.StatusCode)
 	}
 }

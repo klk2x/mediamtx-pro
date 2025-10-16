@@ -351,7 +351,7 @@ func (pa *path) doOnDemandPublisherCloseTimer() {
 
 func (pa *path) doReloadConf(newConf *conf.Path) {
 	pa.confMutex.Lock()
-	oldConf := pa.conf
+	// oldConf := pa.conf
 	pa.conf = newConf
 	pa.confMutex.Unlock()
 
@@ -359,21 +359,22 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 		pa.source.(*staticsources.Handler).ReloadConf(newConf)
 	}
 
-	if pa.recorder != nil &&
-		(newConf.Record != oldConf.Record ||
-			newConf.RecordPath != oldConf.RecordPath ||
-			newConf.RecordFormat != oldConf.RecordFormat ||
-			newConf.RecordPartDuration != oldConf.RecordPartDuration ||
-			newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
-			newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
-			newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
-		pa.recorder.Close()
-		pa.recorder = nil
-	}
+	// Pro 版本使用 pro/recorder 管理器进行录制，禁用内置录制器
+	// if pa.recorder != nil &&
+	// 	(newConf.Record != oldConf.Record ||
+	// 		newConf.RecordPath != oldConf.RecordPath ||
+	// 		newConf.RecordFormat != oldConf.RecordFormat ||
+	// 		newConf.RecordPartDuration != oldConf.RecordPartDuration ||
+	// 		newConf.RecordMaxPartSize != oldConf.RecordMaxPartSize ||
+	// 		newConf.RecordSegmentDuration != oldConf.RecordSegmentDuration ||
+	// 		newConf.RecordDeleteAfter != oldConf.RecordDeleteAfter) {
+	// 	pa.recorder.Close()
+	// 	pa.recorder = nil
+	// }
 
-	if newConf.Record && pa.stream != nil && pa.recorder == nil {
-		pa.startRecording()
-	}
+	// if newConf.Record && pa.stream != nil && pa.recorder == nil {
+	// 	pa.startRecording()
+	// }
 }
 
 func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
@@ -700,9 +701,10 @@ func (pa *path) setReady(desc *description.Session, generateRTPPackets bool, fil
 
 	pa.readyTime = time.Now()
 
-	if pa.conf.Record {
-		pa.startRecording()
-	}
+	// Pro 版本使用 pro/recorder 管理器进行录制，禁用内置录制器
+	// if pa.conf.Record {
+	// 	pa.startRecording()
+	// }
 
 	pa.onNotReadyHook = hooks.OnReady(hooks.OnReadyParams{
 		Logger:          pa,
@@ -742,10 +744,11 @@ func (pa *path) setNotReady() {
 
 	pa.onNotReadyHook()
 
-	if pa.recorder != nil {
-		pa.recorder.Close()
-		pa.recorder = nil
-	}
+	// Pro 版本使用 pro/recorder 管理器进行录制，禁用内置录制器
+	// if pa.recorder != nil {
+	// 	pa.recorder.Close()
+	// 	pa.recorder = nil
+	// }
 
 	if pa.stream != nil {
 		pa.stream.Close()

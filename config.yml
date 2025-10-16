@@ -21,6 +21,9 @@ appid: devNm5C3
 # 应用密钥
 appsecret: PhLCTSEVNm5C3wf3IZKAXDPXK64PGdCnqL6LbnzZnwwW3MyMSCb5W9MT63jGwBAQ
 
+#
+codecServerAddress: 0.0.0.0:9991
+
 ###############################################
 # 全局配置
 
@@ -342,9 +345,9 @@ pathDefaults:
   # 自动清理超出天数前的录制文件，单位天数，0 表示不清理
   recordClearDaysAgo: 10
   # 录制创建回调
-  recordCreateWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/insert/1001
+  # recordCreateWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/insert/1001
   # 录制删除回调
-  recordDelWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/file/del
+  # recordDelWebhook: http://127.0.0.1:9000/api/v1/org/p/res_record/file/del
 
   # 缩略图尺寸
   thumbnailSize: 300

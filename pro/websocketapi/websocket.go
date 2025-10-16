@@ -1,7 +1,8 @@
+// Package websocketapi provides WebSocket API for real-time message broadcasting.
 package websocketapi
 
 import (
-	"log"
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -12,133 +13,263 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	// Time allowed to write a message to the peer.
+	writeWait = 10 * time.Second
+
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+
+	// Maximum message size allowed from peer.
+	maxMessageSize = 512
+
+	// Maximum number of clients
+	maxClients = 1000
+
+	// Send channel buffer size
+	sendBufferSize = 256
+)
+
 var upgrader = websocket.Upgrader{
-	HandshakeTimeout: time.Second * 10,
+	HandshakeTimeout: 10 * time.Second,
 	ReadBufferSize:   1024,
 	WriteBufferSize:  1024,
-	// 解决跨域问题
 	CheckOrigin: func(r *http.Request) bool {
+		// TODO: Implement proper origin check for production
+		// For now, allow same origin only in production
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true // Allow requests without Origin header (non-browser clients)
+		}
+		// You should validate against your allowed origins
 		return true
 	},
 }
 
-var (
-	// 消息通道
-	news = make(map[string]chan interface{})
-	// websocket客户端链接池
-	Clients = make(map[string]*Client)
-	// 互斥锁，防止程序对统一资源同时进行读写
-	mux sync.RWMutex
-)
+// Hub maintains the set of active clients and broadcasts messages to the clients.
+type Hub struct {
+	// Registered clients.
+	clients map[string]*Client
 
-// Client 结构体，包含连接和发送消息的通道
-type Client struct {
-	conn   *websocket.Conn
-	sendCh chan interface{}
-	mu     sync.Mutex // 保护该连接的写操作
+	// Inbound messages from the clients (not used currently, but ready for future).
+	broadcast chan []byte
+
+	// Register requests from the clients.
+	register chan *Client
+
+	// Unregister requests from clients.
+	unregister chan *Client
+
+	// Mutex for clients map
+	mu sync.RWMutex
+
+	// Logger
+	logger logger.Writer
+
+	// Context for shutdown
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-func WebSocketHandler(c *gin.Context) {
-	var conn *websocket.Conn
-	var err error
-	id := uuid.New().String()
+// Client is a middleman between the websocket connection and the hub.
+type Client struct {
+	hub *Hub
 
-	// 创建一个定时器用于服务端心跳
-	pingTicker := time.NewTicker(time.Second * 10)
-	defer pingTicker.Stop() // 确保退出时停止定时器
+	// The websocket connection.
+	conn *websocket.Conn
 
-	// Upgrade the connection
-	conn, err = upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		log.Println(logger.Error, err.Error())
-		return
+	// Buffered channel of outbound messages.
+	send chan interface{}
+
+	// Client ID
+	id string
+
+	// Context for client lifecycle
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+// NewHub creates a new Hub.
+func NewHub(parent logger.Writer) *Hub {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Hub{
+		broadcast:  make(chan []byte, 256),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+		clients:    make(map[string]*Client),
+		logger:     parent,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
+}
 
-	// 创建客户端对象
-	client := &Client{
-		conn:   conn,
-		sendCh: make(chan interface{}),
-	}
-
-	// 把客户端对象添加到连接池
-	addClient(id, client)
-
-	// 启动一个Goroutine处理写操作
-	go client.writePump()
-
-	// 启动心跳机制
+// Run starts the hub's main loop.
+func (h *Hub) Run() {
 	for {
 		select {
-		case <-pingTicker.C:
-			if err := sendPing(client); err != nil {
-				log.Println(err)
-				deleteClient(id)
+		case client := <-h.register:
+			h.mu.Lock()
+			if len(h.clients) >= maxClients {
+				h.mu.Unlock()
+				h.Log(logger.Warn, "max clients reached, rejecting new connection")
+				client.conn.Close()
+				continue
+			}
+			h.clients[client.id] = client
+			h.mu.Unlock()
+			h.Log(logger.Info, "websocket client connected: %s (total: %d)", client.id, len(h.clients))
+
+		case client := <-h.unregister:
+			h.mu.Lock()
+			if _, ok := h.clients[client.id]; ok {
+				delete(h.clients, client.id)
+				close(client.send)
+				h.Log(logger.Info, "websocket client disconnected: %s (total: %d)", client.id, len(h.clients))
+			}
+			h.mu.Unlock()
+
+		case <-h.ctx.Done():
+			h.Log(logger.Info, "websocket hub shutting down")
+			return
+		}
+	}
+}
+
+// Broadcast sends a message to all connected clients.
+func (h *Hub) Broadcast(message interface{}) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for id, client := range h.clients {
+		select {
+		case client.send <- message:
+			// Message sent successfully
+		default:
+			// Send channel is full, client is slow or stuck
+			h.Log(logger.Warn, "client %s send buffer full, skipping message", id)
+		}
+	}
+}
+
+// Close shuts down the hub.
+func (h *Hub) Close() {
+	h.cancel()
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// Close all client connections
+	for _, client := range h.clients {
+		client.cancel()
+		client.conn.Close()
+	}
+	h.clients = make(map[string]*Client)
+}
+
+// ClientCount returns the number of connected clients.
+func (h *Hub) ClientCount() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.clients)
+}
+
+// Log implements logger.Writer.
+func (h *Hub) Log(level logger.Level, format string, args ...interface{}) {
+	h.logger.Log(level, "[websocket] "+format, args...)
+}
+
+// readPump pumps messages from the websocket connection to the hub.
+func (c *Client) readPump() {
+	defer func() {
+		c.hub.unregister <- c
+		c.conn.Close()
+	}()
+
+	c.conn.SetReadLimit(maxMessageSize)
+	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+			// Read messages from client (currently we just discard them)
+			// In the future, you can process client messages here
+			_, _, err := c.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					c.hub.Log(logger.Warn, "websocket error for client %s: %v", c.id, err)
+				}
 				return
 			}
 		}
 	}
 }
 
-// writePump 处理单个客户端的所有 WebSocket 写操作
+// writePump pumps messages from the hub to the websocket connection.
 func (c *Client) writePump() {
-	for msg := range c.sendCh {
-		c.mu.Lock() // 确保单一 goroutine 进行写操作
-		err := c.conn.WriteJSON(msg)
-		c.mu.Unlock()
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
 
-		if err != nil {
-			log.Println("write error:", err)
-			c.conn.Close()
-			break
-		}
-	}
-}
-
-// Helper function to send a ping message
-func sendPing(client *Client) error {
-	client.mu.Lock() // 使用互斥锁保护写操作
-	defer client.mu.Unlock()
-	client.conn.SetWriteDeadline(time.Now().Add(time.Second * 20))
-	return client.conn.WriteMessage(websocket.PingMessage, []byte{})
-}
-
-// 将客户端添加到连接池
-func addClient(id string, client *Client) {
-	mux.Lock()
-	defer mux.Unlock()
-	Clients[id] = client
-}
-
-// 获取指定客户端
-func getClient(id string) (*Client, bool) {
-	mux.RLock()
-	defer mux.RUnlock()
-	client, exist := Clients[id]
-	return client, exist
-}
-
-// 删除客户端并关闭连接
-func deleteClient(id string) {
-	mux.Lock()
-	defer mux.Unlock()
-	if client, ok := Clients[id]; ok {
-		close(client.sendCh) // 关闭发送通道以停止 writePump
-		client.conn.Close()
-		delete(Clients, id)
-		log.Println(id + " websocket exit")
-	}
-}
-
-// 将消息发送到所有客户端
-func PostMessage(data interface{}) {
-	mux.RLock() // 读取锁保护 Clients
-	for _, client := range Clients {
+	for {
 		select {
-		case client.sendCh <- data:
-		default:
-			log.Println("sendCh full")
-			// deleteClient(id)
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				// The hub closed the channel.
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+
+			if err := c.conn.WriteJSON(message); err != nil {
+				c.hub.Log(logger.Warn, "write error for client %s: %v", c.id, err)
+				return
+			}
+
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+
+		case <-c.ctx.Done():
+			return
 		}
 	}
-	mux.RUnlock() // 释放读取锁
+}
+
+// ServeWS handles websocket requests from the peer.
+func ServeWS(hub *Hub, c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		hub.Log(logger.Error, "websocket upgrade failed: %v", err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(hub.ctx)
+	client := &Client{
+		hub:    hub,
+		conn:   conn,
+		send:   make(chan interface{}, sendBufferSize),
+		id:     uuid.New().String(),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	hub.register <- client
+
+	// Allow collection of memory referenced by the caller by doing all work in
+	// new goroutines.
+	go client.writePump()
+	go client.readPump()
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
-	// "github.com/bluenviron/mediamtx/pro/websocketapi"
 )
 
 // DiskStatus represents disk usage information
@@ -445,14 +444,17 @@ func (a *APIV2) PostMessage(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: Integrate with websocketapi when enabled
-	// websocketapi.PostMessage(message)
-
-	a.Log(logger.Info, "Message posted (websocket not implemented yet)")
+	// Broadcast message to all connected WebSocket clients
+	if a.wsHub != nil {
+		a.wsHub.Broadcast(message)
+		a.Log(logger.Info, "Message broadcast to %d WebSocket clients", a.wsHub.ClientCount())
+	} else {
+		a.Log(logger.Warn, "WebSocket hub not initialized, message not broadcast")
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"message": "Message will be broadcast when websocket is enabled",
+		"clients": a.wsHub.ClientCount(),
 	})
 }
 

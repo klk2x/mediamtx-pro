@@ -16,6 +16,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v5"
 	"github.com/gin-gonic/gin"
+	livekitauth "github.com/livekit/protocol/auth"
 
 	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -29,6 +30,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 
 	proapi "github.com/bluenviron/mediamtx/pro/api"
+	"github.com/bluenviron/mediamtx/pro/healthcheck"
 	"github.com/bluenviron/mediamtx/pro/recorder"
 	prorecordcleaner "github.com/bluenviron/mediamtx/pro/recordcleaner"
 	"github.com/bluenviron/mediamtx/pro/rvideo"
@@ -90,6 +92,8 @@ type Core struct {
 	rvideoServer    *rvideo.RVideoServer
 	recordManager   *recorder.Manager
 	api             *proapi.APIV2
+	authMiddleware  *proapi.APIKeyAuthMiddleware
+	healthChecker   *healthcheck.Checker
 	confWatcher     *confwatcher.ConfWatcher
 
 	// channels
@@ -500,49 +504,86 @@ func (p *Core) createResources(initial bool) error {
 	// Record Manager
 	if p.recordManager == nil {
 		i := &recorder.Manager{
-			RecordPath:  p.conf.PathDefaults.RecordPath,
-			APIDomain:   p.conf.APIDomain,
-			APIAddress:  p.conf.APIAddress,
-			PathConfs:   p.conf.Paths,
-			PathManager: p.pathManager,
-			Parent:      p,
+			RecordPath:   p.conf.PathDefaults.RecordPath,
+			APIDomain:    p.conf.APIDomain,
+			APIAddress:   p.conf.APIAddress,
+			PathConfs:    p.conf.Paths,
+			PathDefaults: &p.conf.PathDefaults,
+			PathManager:  p.pathManager,
+			Parent:       p,
 		}
 		err = i.Initialize()
 		if err != nil {
 			return err
 		}
 		p.recordManager = i
+
+		// Set the recordManager in pathManager for pathNotReady callback
+		p.pathManager.recordManager = i
+	}
+
+	// API Auth Middleware
+	if p.conf.APIAuth && p.authMiddleware == nil {
+		keys := map[string]string{
+			p.conf.AppID: p.conf.AppSecret,
+		}
+		var keyProvider = livekitauth.NewFileBasedKeyProviderFromMap(keys)
+		p.authMiddleware = proapi.NewAPIKeyAuthMiddleware(keyProvider)
+		p.Log(logger.Info, "API auth middleware initialized with AppID: %s", p.conf.AppID)
 	}
 
 	// API
 	if p.conf.API && p.api == nil {
 		i := &proapi.APIV2{
-			Version:        Version,
-			Started:        started,
-			Address:        p.conf.APIAddress,
-			Encryption:     p.conf.APIEncryption,
-			ServerKey:      p.conf.APIServerKey,
-			ServerCert:     p.conf.APIServerCert,
-			AllowOrigin:    p.conf.APIAllowOrigin,
-			TrustedProxies: p.conf.APITrustedProxies,
-			ReadTimeout:    p.conf.ReadTimeout,
-			WriteTimeout:   p.conf.WriteTimeout,
-			Conf:           p.conf,
-			AuthManager:    p.authManager,
-			PathManager:    p.pathManager,
-			RTSPServer:     p.rtspServer,
-			RTSPSServer:    p.rtspsServer,
-			RTMPServer:     p.rtmpServer,
-			RTMPSServer:    p.rtmpsServer,
-			WebRTCServer:   p.webRTCServer,
-			RecordManager:  p.recordManager,
-			Parent:         p,
+			Version:           Version,
+			Started:           started,
+			Address:           p.conf.APIAddress,
+			Encryption:        p.conf.APIEncryption,
+			ServerKey:         p.conf.APIServerKey,
+			ServerCert:        p.conf.APIServerCert,
+			AllowOrigin:       p.conf.APIAllowOrigin,
+			TrustedProxies:    p.conf.APITrustedProxies,
+			ReadTimeout:       p.conf.ReadTimeout,
+			WriteTimeout:      p.conf.WriteTimeout,
+			Conf:              p.conf,
+			AuthManager:       p.authManager,
+			PathManager:       p.pathManager,
+			RTSPServer:        p.rtspServer,
+			RTSPSServer:       p.rtspsServer,
+			RTMPServer:        p.rtmpServer,
+			RTMPSServer:       p.rtmpsServer,
+			WebRTCServer:      p.webRTCServer,
+			RecordManager:     p.recordManager,
+			Parent:            p,
+			APIAuthMiddleware: p.authMiddleware,
 		}
 		err = i.Initialize()
 		if err != nil {
 			return err
 		}
 		p.api = i
+	}
+
+	// Initialize Smart Recording (requires API for color checking)
+	if p.recordManager != nil && p.api != nil {
+		err = p.recordManager.InitializeSmartRecording(p.api)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Health Checker (requires API for snapshot functionality)
+	if p.healthChecker == nil && p.api != nil {
+		i := &healthcheck.Checker{
+			PathConfs:   p.conf.Paths,
+			PathManager: p.pathManager,
+			Parent:      p,
+		}
+		err = i.Initialize(p.api)
+		if err != nil {
+			return err
+		}
+		p.healthChecker = i
 	}
 
 	if initial && p.confPath != "" {
@@ -635,9 +676,22 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRecordManager ||
 		closeLogger
 
+	closeHealthChecker := newConf == nil ||
+		closeAPI ||
+		closePathManager ||
+		closeLogger
+	if !closeHealthChecker && p.healthChecker != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.healthChecker.ReloadPathConfs(newConf.Paths, p.api)
+	}
+
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
 		p.confWatcher = nil
+	}
+
+	if closeHealthChecker && p.healthChecker != nil {
+		p.healthChecker.Close()
+		p.healthChecker = nil
 	}
 
 	if p.api != nil {

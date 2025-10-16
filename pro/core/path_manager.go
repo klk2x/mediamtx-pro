@@ -69,6 +69,10 @@ type pathManagerParent interface {
 	logger.Writer
 }
 
+type pathRecordManager interface {
+	OnPathNotReady(pathName string)
+}
+
 type pathManager struct {
 	logLevel          conf.LogLevel
 	authManager       *auth.Manager
@@ -81,6 +85,7 @@ type pathManager struct {
 	externalCmdPool   *externalcmd.Pool
 	metrics           *metrics.Metrics
 	parent            pathManagerParent
+	recordManager     pathRecordManager // Pro recorder manager for pathNotReady callback
 
 	ctx       context.Context
 	ctxCancel func()
@@ -313,6 +318,11 @@ func (pm *pathManager) doPathNotReady(pa *path) {
 
 	if pm.hlsServer != nil {
 		pm.hlsServer.PathNotReady(pa)
+	}
+
+	// Notify recorder manager that path is no longer ready
+	if pm.recordManager != nil {
+		pm.recordManager.OnPathNotReady(pa.name)
 	}
 }
 

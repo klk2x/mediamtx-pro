@@ -638,3 +638,19 @@ func (a *APIV2) saveSnapshotToFile(croppedImg, originalImg image.Image, req apiV
 
 	return res, nil
 }
+
+// GetSnapshot implements snapshotGetter interface for health checker.
+// Returns raw image bytes and content type.
+func (a *APIV2) GetSnapshot(pathName string) ([]byte, string, error) {
+	req := apiV2SnapshotReq{
+		Name:     pathName,
+		FileType: "stream", // Return raw bytes
+	}
+
+	imageBytes, _, err := a.snapshotRequest(req)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return imageBytes, "image/jpeg", nil
+}

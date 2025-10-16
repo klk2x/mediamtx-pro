@@ -8,27 +8,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/base"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/pro/deviceutil"
 	"github.com/google/uuid"
 )
 
 // Manager manages recording tasks.
 type Manager struct {
-	RecordPath  string
-	APIDomain   string
-	APIAddress  string
-	PathConfs   map[string]*conf.Path // path configurations for auto recording
-	PathManager defs.APIPathManager
-	Parent      logger.Writer
+	RecordPath   string
+	APIDomain    string
+	APIAddress   string
+	PathConfs    map[string]*conf.Path // path configurations for auto recording
+	PathDefaults *conf.Path            // default path configuration (for webhooks)
+	PathManager  defs.APIPathManager
+	Parent       logger.Writer
+	ColorChecker colorChecker // For smart recording
 
-	mutex      sync.RWMutex
-	tasks      map[string]*Task // key: pathName
-	baseURL    string           // cached base URL
-	ctx        context.Context
-	ctxCancel  func()
-	wg         sync.WaitGroup
+	mutex     sync.RWMutex
+	tasks     map[string]*Task // key: pathName
+	baseURL   string           // cached base URL
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+}
+
+// colorChecker checks if the video has colorful content.
+type colorChecker interface {
+	IsColorful(pathName string) (int, error)
 }
 
 // Initialize initializes the Manager.
@@ -51,8 +60,22 @@ func (m *Manager) Initialize() error {
 	return nil
 }
 
+// InitializeSmartRecording initializes smart recording (called after API is ready).
+func (m *Manager) InitializeSmartRecording(colorChecker colorChecker) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if colorChecker != nil {
+		m.ColorChecker = colorChecker
+		m.Log(logger.Info, "smart recording for network capture devices enabled")
+	}
+
+	return nil
+}
+
 // Close closes the Manager.
 func (m *Manager) Close() {
+
 	// Cancel context to stop monitoring goroutine
 	if m.ctxCancel != nil {
 		m.ctxCancel()
@@ -108,14 +131,22 @@ func (m *Manager) StartRecording(params *StartParams) (*StartResponse, error) {
 		return nil, fmt.Errorf("no one is publishing to path '%s'", params.Name)
 	}
 
+	// Get path-specific configuration for sourceName (if exists)
+	var pathConf *conf.Path
+	if m.PathConfs != nil {
+		pathConf = m.PathConfs[params.Name]
+	}
+
 	// Create new task
 	task := &Task{
-		ID:          uuid.New().String(),
-		PathName:    params.Name,
-		Format:      params.VideoFormat,
-		RecordPath:  m.RecordPath,
-		PathManager: m.PathManager,
-		Parent:      m,
+		ID:           uuid.New().String(),
+		PathName:     params.Name,
+		Format:       params.VideoFormat,
+		RecordPath:   m.RecordPath,
+		PathManager:  m.PathManager,
+		PathConf:     pathConf,        // Path-specific config for sourceName
+		PathDefaults: m.PathDefaults,  // PathDefaults for webhook URL
+		Parent:       m,
 	}
 
 	// Set default timeout if not specified
@@ -289,6 +320,7 @@ func (m *Manager) checkAndStartAutoRecording() {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	// Start new recording tasks for ready paths
 	for pathName, pathConf := range m.PathConfs {
 		// Skip if record is not enabled for this path
 		if !pathConf.Record {
@@ -304,6 +336,13 @@ func (m *Manager) checkAndStartAutoRecording() {
 		pathData, err := m.PathManager.APIPathsGet(pathName)
 		if err != nil || !pathData.Ready {
 			continue
+		}
+
+		// For network capture devices, check if colorful content is present
+		if pathConf.DeviceType == "network_capture" {
+			if !m.shouldStartNetworkCaptureRecording(pathName, pathConf) {
+				continue
+			}
 		}
 
 		// Start automatic recording
@@ -322,6 +361,8 @@ func (m *Manager) checkAndStartAutoRecording() {
 			Format:       "mp4", // Auto recording uses MP4 format
 			RecordPath:   m.RecordPath,
 			PathManager:  m.PathManager,
+			PathConf:     pathConf,       // Path-specific config for sourceName
+			PathDefaults: m.PathDefaults, // PathDefaults for webhook URL
 			Parent:       m,
 			Timeout:      timeout,
 			IsAutoRecord: true,
@@ -338,6 +379,107 @@ func (m *Manager) checkAndStartAutoRecording() {
 
 		m.Log(logger.Info, "automatic recording started for path '%s', duration: %v", pathName, timeout)
 	}
+}
+
+// shouldStartNetworkCaptureRecording checks if a network capture device should start recording.
+// It maintains state for each path to track colorful content over multiple checks.
+func (m *Manager) shouldStartNetworkCaptureRecording(pathName string, pathConf *conf.Path) bool {
+	// Check if we have color checker available
+	if m.ColorChecker == nil {
+		m.Log(logger.Warn, "color checker not available for network capture device '%s', skipping smart check", pathName)
+		return true // Fallback to normal auto recording
+	}
+
+	// Get or create state for this path
+	state := m.getOrCreateCaptureState(pathName)
+
+	// Check device status first
+	deviceIP, err := parseDeviceIP(pathConf.Source)
+	if err != nil {
+		m.Log(logger.Warn, "failed to parse device IP for '%s': %v", pathName, err)
+		return false
+	}
+
+	availableCount, err := deviceutil.GetInputStatusIsAvalible(deviceIP)
+	if err != nil || availableCount == 0 {
+		// Device not available, reset state
+		state.reset()
+		return false
+	}
+
+	// Check colorful content
+	colorfulVal, err := m.ColorChecker.IsColorful(pathName)
+	if err != nil {
+		m.Log(logger.Warn, "failed to check colorful for '%s': %v", pathName, err)
+		return false
+	}
+
+	state.pingCount++
+	state.colorfulValue += colorfulVal
+
+	threshold := pathConf.RecordMinThreshold
+	if threshold <= 0 {
+		threshold = 60 // Default threshold
+	}
+
+	m.Log(logger.Debug, "Network capture check: path=%s pingCount=%d colorful++=%d threshold=%d",
+		pathName, state.pingCount, state.colorfulValue, threshold)
+
+	// Need 3 consecutive checks with total colorful value > threshold
+	if state.pingCount >= 3 && state.colorfulValue > threshold {
+		m.Log(logger.Info, "network capture device '%s' ready to record (colorful content detected)", pathName)
+		state.reset() // Reset for next time
+		return true
+	}
+
+	// Reset after too many checks to avoid overflow
+	if state.pingCount > 12 {
+		state.reset()
+	}
+
+	return false
+}
+
+// captureState tracks state for network capture devices
+type captureState struct {
+	pingCount     int
+	colorfulValue int
+}
+
+func (s *captureState) reset() {
+	s.pingCount = 0
+	s.colorfulValue = 0
+}
+
+// captureStates stores state for each network capture path
+var captureStates = make(map[string]*captureState)
+var captureStatesMutex sync.Mutex
+
+func (m *Manager) getOrCreateCaptureState(pathName string) *captureState {
+	captureStatesMutex.Lock()
+	defer captureStatesMutex.Unlock()
+
+	if state, exists := captureStates[pathName]; exists {
+		return state
+	}
+
+	state := &captureState{}
+	captureStates[pathName] = state
+	return state
+}
+
+// parseDeviceIP extracts device IP from source URL
+func parseDeviceIP(source string) (string, error) {
+	u, err := base.ParseURL(source)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse source URL: %w", err)
+	}
+
+	if u.Host == "" {
+		return "", fmt.Errorf("source URL has no host")
+	}
+
+	return u.Host, nil
 }
 
 // ReloadPathConfs reloads path configurations.
@@ -360,4 +502,32 @@ func (m *Manager) GetRecordingStates() map[string]*time.Time {
 		states[pathName] = &endTime
 	}
 	return states
+}
+
+// OnPathNotReady is called by pathManager when a path becomes not ready.
+// This is used to stop automatic recording tasks when the stream disconnects.
+func (m *Manager) OnPathNotReady(pathName string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	task, exists := m.tasks[pathName]
+	if !exists {
+		return
+	}
+
+	// Only stop auto-record tasks
+	if !task.IsAutoRecord {
+		return
+	}
+
+	m.Log(logger.Info, "path '%s' is no longer ready, stopping automatic recording", pathName)
+	task.Stop()
+	delete(m.tasks, pathName)
+
+	// Reset capture state for network capture devices
+	captureStatesMutex.Lock()
+	if state, exists := captureStates[pathName]; exists {
+		state.reset()
+	}
+	captureStatesMutex.Unlock()
 }

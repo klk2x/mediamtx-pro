@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/pro/recorder"
+	"github.com/bluenviron/mediamtx/pro/websocketapi"
 )
 
 type apiAuthManager interface {
@@ -47,10 +48,12 @@ type APIV2 struct {
 	RTMPServer     defs.APIRTMPServer
 	RTMPSServer    defs.APIRTMPServer
 	WebRTCServer   defs.APIWebRTCServer
-	RecordManager  *recorder.Manager
-	Parent         apiParent
+	RecordManager   *recorder.Manager
+	Parent          apiParent
+	APIAuthMiddleware *APIKeyAuthMiddleware
 
 	httpServer *httpp.Server
+	wsHub      *websocketapi.Hub
 	mutex      sync.RWMutex
 }
 
@@ -60,7 +63,14 @@ func (a *APIV2) Initialize() error {
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
 	router.Use(a.middlewareOrigin)
-	router.Use(a.middlewareAuth)
+
+	// Use API token auth if enabled, otherwise use default auth
+	if a.Conf.APIAuth && a.APIAuthMiddleware != nil {
+		router.Use(a.APIAuthMiddleware.AuthMiddleware())
+		a.Log(logger.Info, "API token authentication enabled")
+	} else {
+		router.Use(a.middlewareAuth)
+	}
 
 	// V2 API Group
 	group := router.Group("/v2")
@@ -117,6 +127,13 @@ func (a *APIV2) Initialize() error {
 	group.GET("/paths/get2/*name", a.onPathsGet2)
 	group.POST("/paths/message", a.PostMessage)
 
+	// WebSocket endpoint for real-time messaging
+	a.wsHub = websocketapi.NewHub(a)
+	go a.wsHub.Run()
+	router.GET("/ws", func(c *gin.Context) {
+		websocketapi.ServeWS(a.wsHub, c)
+	})
+
 	// FFmpeg export endpoint
 	group.POST("/file/export/mp4", a.ExportMP4)
 
@@ -166,6 +183,9 @@ func (a *APIV2) Initialize() error {
 // Close closes the API.
 func (a *APIV2) Close() {
 	a.Log(logger.Info, "Pro API listener is closing")
+	if a.wsHub != nil {
+		a.wsHub.Close()
+	}
 	a.httpServer.Close()
 }
 
