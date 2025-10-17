@@ -108,7 +108,10 @@ func (a *APIV2) dashboard(ctx *gin.Context) {
 		},
 	}
 
-	ctx.JSON(http.StatusOK, res)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  res,
+	})
 }
 
 // countRecordFiles counts all files and jpg files in record directory
@@ -161,9 +164,12 @@ func (a *APIV2) getRecordTask(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"pathName":    pathName,
-		"taskEndTime": endTime,
-		"isRecording": true,
+		"success": true,
+		"result": gin.H{
+			"pathName":    pathName,
+			"taskEndTime": endTime,
+			"isRecording": true,
+		},
 	})
 }
 
@@ -186,9 +192,11 @@ func (a *APIV2) getRecordTasks(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"tasks":   tasks,
-		"total":   len(tasks),
 		"success": true,
+		"result": gin.H{
+			"tasks": tasks,
+			"total": len(tasks),
+		},
 	})
 }
 
@@ -231,8 +239,10 @@ func (a *APIV2) fileRename(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"oldPath": body.FullPath,
-		"newPath": a.PathToURL(newPath),
+		"result": gin.H{
+			"oldPath": body.FullPath,
+			"newPath": a.PathToURL(newPath),
+		},
 	})
 }
 
@@ -271,7 +281,9 @@ func (a *APIV2) fileDel(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"path":    body.FullPath,
+		"result": gin.H{
+			"path": body.FullPath,
+		},
 	})
 }
 
@@ -320,8 +332,10 @@ func (a *APIV2) fileMove(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"oldPath": body.FullPath,
-		"newPath": a.PathToURL(destPath),
+		"result": gin.H{
+			"oldPath": body.FullPath,
+			"newPath": a.PathToURL(destPath),
+		},
 	})
 }
 
@@ -346,10 +360,13 @@ func (a *APIV2) onFilesListGet(ctx *gin.Context) {
 
 	files := a.listFiles(searchDir, req.FileType, req.Search)
 
-	ctx.JSON(http.StatusOK, apiV2FileListRes{
-		Files:   files,
-		Total:   len(files),
-		Success: true,
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result": apiV2FileListRes{
+			Files:   files,
+			Total:   len(files),
+			Success: true,
+		},
 	})
 }
 
@@ -369,10 +386,13 @@ func (a *APIV2) onFilesFavoriteGet(ctx *gin.Context) {
 	favoriteDir := filepath.Join(recordPath, "favorite")
 	files := a.listFiles(favoriteDir, req.FileType, req.Search)
 
-	ctx.JSON(http.StatusOK, apiV2FileListRes{
-		Files:   files,
-		Total:   len(files),
-		Success: true,
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result": apiV2FileListRes{
+			Files:   files,
+			Total:   len(files),
+			Success: true,
+		},
 	})
 }
 
@@ -454,7 +474,9 @@ func (a *APIV2) PostMessage(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"clients": a.wsHub.ClientCount(),
+		"result": gin.H{
+			"clients": a.wsHub.ClientCount(),
+		},
 	})
 }
 
@@ -478,11 +500,14 @@ func (a *APIV2) snapshotConfGet(ctx *gin.Context) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Return default config
-			ctx.JSON(http.StatusOK, SnapshotConfig{
-				PathName: pathName,
-				Enabled:  false,
-				Interval: 10,
-				Quality:  80,
+			ctx.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"result": SnapshotConfig{
+					PathName: pathName,
+					Enabled:  false,
+					Interval: 10,
+					Quality:  80,
+				},
 			})
 			return
 		}
@@ -496,7 +521,10 @@ func (a *APIV2) snapshotConfGet(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, config)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  config,
+	})
 }
 
 // snapshotConfSave handles POST /v2/snapshot/config/*name
@@ -547,7 +575,9 @@ func (a *APIV2) snapshotConfSave(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
-		"config":  config,
+		"result": gin.H{
+			"config": config,
+		},
 	})
 }
 

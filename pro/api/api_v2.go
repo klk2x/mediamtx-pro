@@ -62,6 +62,7 @@ func (a *APIV2) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(a.TrustedProxies.ToTrustedProxies()) //nolint:errcheck
 
+	// CORS middleware must be FIRST, before auth
 	router.Use(a.middlewareOrigin)
 
 	// Use API token auth if enabled, otherwise use default auth
@@ -142,10 +143,10 @@ func (a *APIV2) Initialize() error {
 	group.POST("/snapshot/config/*name", a.snapshotConfSave)
 
 	// Snapshot capture endpoints
-	group.GET("/snapshot", a.snapshot)                     // Device HTTP API snapshot
-	group.GET("/publish/snapshot", a.snapshotStream)       // FFmpeg snapshot from stream
-	group.GET("/snapshot/native", a.snapshotNative)        // Pure Go snapshot from MediaMTX stream
-	group.GET("/snapshot/mjpeg", a.snapshotNativeMJPEG)    // MJPEG streaming endpoint
+	group.GET("/snapshot", a.snapshot)                  // Device HTTP API snapshot
+	group.GET("/publish/snapshot", a.snapshotStream)    // FFmpeg snapshot from stream
+	group.GET("/snapshot/native", a.snapshotNative)     // Pure Go snapshot from MediaMTX stream
+	group.GET("/snapshot/mjpeg", a.snapshotNativeMJPEG) // MJPEG streaming endpoint
 
 	// Device proxy endpoint
 	group.Any("/proxy/device/*path", a.proxyToDevice)
@@ -215,10 +216,14 @@ func (a *APIV2) middlewareOrigin(ctx *gin.Context) {
 	ctx.Header("Access-Control-Allow-Origin", a.AllowOrigin)
 	ctx.Header("Access-Control-Allow-Credentials", "true")
 
+	// Add expose headers for WebRTC WHEP protocol
+	ctx.Header("Access-Control-Expose-Headers", "Content-Type, Content-Length, ETag, ID, Accept-Patch, Link, Location")
+
+	// Handle preflight requests
 	if ctx.Request.Method == http.MethodOptions &&
 		ctx.Request.Header.Get("Access-Control-Request-Method") != "" {
 		ctx.Header("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
-		ctx.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		ctx.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
 		ctx.AbortWithStatus(http.StatusNoContent)
 		return
 	}
@@ -248,17 +253,23 @@ func (a *APIV2) middlewareAuth(ctx *gin.Context) {
 }
 
 func (a *APIV2) onInfo(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, &defs.APIInfo{
-		Version: "v2-pro-" + a.Version,
-		Started: a.Started,
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result": &defs.APIInfo{
+			Version: "v2-pro-" + a.Version,
+			Started: a.Started,
+		},
 	})
 }
 
 func (a *APIV2) onHealth(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "healthy",
-		"version": a.Version,
-		"uptime":  time.Since(a.Started).String(),
+		"success": true,
+		"result": gin.H{
+			"status":  "healthy",
+			"version": a.Version,
+			"uptime":  time.Since(a.Started).String(),
+		},
 	})
 }
 
@@ -288,7 +299,10 @@ func (a *APIV2) onStats(ctx *gin.Context) {
 		},
 	}
 
-	ctx.JSON(http.StatusOK, stats)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  stats,
+	})
 }
 
 func (a *APIV2) onConfigGlobalGet(ctx *gin.Context) {
@@ -296,7 +310,10 @@ func (a *APIV2) onConfigGlobalGet(ctx *gin.Context) {
 	c := a.Conf
 	a.mutex.RUnlock()
 
-	ctx.JSON(http.StatusOK, c.Global())
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  c.Global(),
+	})
 }
 
 func (a *APIV2) onConfigGlobalPatch(ctx *gin.Context) {
@@ -334,7 +351,10 @@ func (a *APIV2) onPathsList(ctx *gin.Context) {
 	}
 
 	data.ItemCount = len(data.Items)
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 func (a *APIV2) onPathsGet(ctx *gin.Context) {
@@ -351,7 +371,10 @@ func (a *APIV2) onPathsGet(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 func (a *APIV2) onRTSPConnsList(ctx *gin.Context) {
@@ -362,7 +385,10 @@ func (a *APIV2) onRTSPConnsList(ctx *gin.Context) {
 	}
 
 	data.ItemCount = len(data.Items)
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 func (a *APIV2) onRTSPSessionsList(ctx *gin.Context) {
@@ -373,7 +399,10 @@ func (a *APIV2) onRTSPSessionsList(ctx *gin.Context) {
 	}
 
 	data.ItemCount = len(data.Items)
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 func (a *APIV2) onRTMPConnsList(ctx *gin.Context) {
@@ -384,7 +413,10 @@ func (a *APIV2) onRTMPConnsList(ctx *gin.Context) {
 	}
 
 	data.ItemCount = len(data.Items)
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 func (a *APIV2) onWebRTCSessionsList(ctx *gin.Context) {
@@ -395,7 +427,10 @@ func (a *APIV2) onWebRTCSessionsList(ctx *gin.Context) {
 	}
 
 	data.ItemCount = len(data.Items)
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  data,
+	})
 }
 
 // ReloadConf is called by core.
@@ -426,7 +461,10 @@ func (a *APIV2) onRecordStart(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  response,
+	})
 }
 
 // onRecordStop handles POST /v2/record/stop
@@ -444,7 +482,10 @@ func (a *APIV2) onRecordStop(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"result":  response,
+	})
 }
 
 // PathQueryItem represents a single path item in the query response

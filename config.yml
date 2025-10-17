@@ -388,7 +388,7 @@ paths:
     contrast: 30
     # 截图后图片后处理：饱和度 -100 to 100
     saturation: 30
-    deviceType: "network_capture"
+    # deviceType: "network_capture"
 
     # 自动化录制开关
     record: no

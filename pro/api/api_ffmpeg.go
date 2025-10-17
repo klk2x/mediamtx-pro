@@ -173,7 +173,12 @@ func (a *APIV2) ExportMP4(ctx *gin.Context) {
 	if len(outfiles) == 0 {
 		defer ctx.JSON(http.StatusOK, gin.H{"success": false, "error": "outfiles=0"})
 	} else if len(outfiles) == 1 {
-		defer ctx.JSON(http.StatusOK, gin.H{"success": true, "outfile": a.PathToURL(outfiles[0])})
+		defer ctx.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"result": gin.H{
+				"outfile": a.PathToURL(outfiles[0]),
+			},
+		})
 		// defer ctx.File(outfiles[0])
 	} else if len(outfiles) > 1 {
 
@@ -195,7 +200,12 @@ func (a *APIV2) ExportMP4(ctx *gin.Context) {
 		if outerr != nil {
 			defer ctx.JSON(http.StatusOK, gin.H{"success": false, "error": outerr.Error()})
 		} else {
-			defer ctx.JSON(http.StatusOK, gin.H{"success": true, "outfile": a.PathToURL(resultFile)})
+			defer ctx.JSON(http.StatusOK, gin.H{
+				"success": true,
+				"result": gin.H{
+					"outfile": a.PathToURL(resultFile),
+				},
+			})
 			// defer ctx.File(resultFile)
 		}
 	}

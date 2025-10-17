@@ -403,8 +403,11 @@ class MRLS {
    * @example
    * // Response:
    * {
-   *   "version": "v2-pro-1.0.0",
-   *   "started": "2024-01-01T00:00:00Z"
+   *   "success": true,
+   *   "result": {
+   *     "version": "v2-pro-1.0.0",
+   *     "started": "2024-01-01T00:00:00Z"
+   *   }
    * }
    */
   static getInfo() {
@@ -430,9 +433,12 @@ class MRLS {
    * @example
    * // Response:
    * {
-   *   "status": "healthy",
-   *   "version": "1.0.0",
-   *   "uptime": "1h30m"
+   *   "success": true,
+   *   "result": {
+   *     "status": "healthy",
+   *     "version": "1.0.0",
+   *     "uptime": "1h30m"
+   *   }
    * }
    */
   static getHealth() {
@@ -458,17 +464,20 @@ class MRLS {
    * @example
    * // Response:
    * {
-   *   "version": "1.0.0",
-   *   "uptime": "1h30m",
-   *   "pathsCount": 5,
-   *   "servers": {
-   *     "rtsp": true,
-   *     "rtmp": true,
-   *     "webrtc": true
-   *   },
-   *   "config": {
-   *     "logLevel": "info",
-   *     "configuredPaths": 10
+   *   "success": true,
+   *   "result": {
+   *     "version": "1.0.0",
+   *     "uptime": "1h30m",
+   *     "pathsCount": 5,
+   *     "servers": {
+   *       "rtsp": true,
+   *       "rtmp": true,
+   *       "webrtc": true
+   *     },
+   *     "config": {
+   *       "logLevel": "info",
+   *       "configuredPaths": 10
+   *     }
    *   }
    * }
    */
@@ -545,13 +554,16 @@ class MRLS {
    * @example
    * // Response:
    * {
-   *   "name": "stream1",
-   *   "confName": "stream1",
-   *   "source": "publisher",
-   *   "ready": true,
-   *   "readyTime": "2024-01-01T00:00:00Z",
-   *   "tracks": ["H264", "Opus"],
-   *   "bytesReceived": 1024000
+   *   "success": true,
+   *   "result": {
+   *     "name": "stream1",
+   *     "confName": "stream1",
+   *     "source": "publisher",
+   *     "ready": true,
+   *     "readyTime": "2024-01-01T00:00:00Z",
+   *     "tracks": ["H264", "Opus"],
+   *     "bytesReceived": 1024000
+   *   }
    * }
    */
   static getPathInfo(pathName) {
@@ -577,16 +589,19 @@ class MRLS {
    * @example
    * // Response:
    * {
-   *   "itemCount": 2,
-   *   "pageCount": 1,
-   *   "items": [
-   *     {
-   *       "name": "stream1",
-   *       "confName": "stream1",
-   *       "source": "publisher",
-   *       "ready": true
-   *     }
-   *   ]
+   *   "success": true,
+   *   "result": {
+   *     "itemCount": 2,
+   *     "pageCount": 1,
+   *     "items": [
+   *       {
+   *         "name": "stream1",
+   *         "confName": "stream1",
+   *         "source": "publisher",
+   *         "ready": true
+   *       }
+   *     ]
+   *   }
    * }
    */
   static getPathsList() {
@@ -793,14 +808,16 @@ class MRLS {
    * // Response:
    * {
    *   "success": true,
-   *   "existed": false,
-   *   "id": "task-uuid",
-   *   "name": "stream1",
-   *   "fileName": "20240101-1200-abcd1234.mp4",
-   *   "filePath": "/20240101/20240101-1200-abcd1234.mp4",
-   *   "fullPath": "/path/to/recordings/20240101/20240101-1200-abcd1234.mp4",
-   *   "fileURL": "http://server/res/20240101/20240101-1200-abcd1234.mp4",
-   *   "taskEndTime": "2024-01-01T12:30:00Z"
+   *   "result": {
+   *     "existed": false,
+   *     "id": "task-uuid",
+   *     "name": "stream1",
+   *     "fileName": "20240101-1200-abcd1234.mp4",
+   *     "filePath": "/20240101/20240101-1200-abcd1234.mp4",
+   *     "fullPath": "/path/to/recordings/20240101/20240101-1200-abcd1234.mp4",
+   *     "fileURL": "http://server/res/20240101/20240101-1200-abcd1234.mp4",
+   *     "taskEndTime": "2024-01-01T12:30:00Z"
+   *   }
    * }
    */
   static record(pathName, action, taskOutMinutes, fileName) {
@@ -838,11 +855,13 @@ class MRLS {
    * // Response:
    * {
    *   "success": true,
-   *   "name": "stream1",
-   *   "fileName": "20240101-1200-abcd1234.mp4",
-   *   "filePath": "/20240101/20240101-1200-abcd1234.mp4",
-   *   "fullPath": "/path/to/recordings/20240101/20240101-1200-abcd1234.mp4",
-   *   "fileURL": "http://server/res/20240101/20240101-1200-abcd1234.mp4"
+   *   "result": {
+   *     "name": "stream1",
+   *     "fileName": "20240101-1200-abcd1234.mp4",
+   *     "filePath": "/20240101/20240101-1200-abcd1234.mp4",
+   *     "fullPath": "/path/to/recordings/20240101/20240101-1200-abcd1234.mp4",
+   *     "fileURL": "http://server/res/20240101/20240101-1200-abcd1234.mp4"
+   *   }
    * }
    */
   static stopRecord(pathName) {
@@ -1010,18 +1029,21 @@ class MRLS {
    * @param {number} options.thumbnailSize - 缩略图宽度（从配置读取）
    * @returns {Promise<Object>} 返回截图信息或图片流
    * @example
-   * // Response (fileType='url'):
+   * // Response (fileType='url' 或 'file'):
    * {
    *   "success": true,
-   *   "filePath": "/20240101/snapshot.jpg",
-   *   "fileURL": "http://server/res/20240101/snapshot.jpg",
-   *   "filename": "snapshot.jpg",
-   *   "fullPath": "/path/to/recordings/20240101/snapshot.jpg",
-   *   "original": "snapshot.jpg",
-   *   "thumbnail": "thumbnail-snapshot.jpg",
-   *   "width": 1920,
-   *   "height": 1080
+   *   "result": {
+   *     "filePath": "/20240101/snapshot.jpg",
+   *     "fileURL": "http://server/res/20240101/snapshot.jpg",
+   *     "filename": "snapshot.jpg",
+   *     "fullPath": "/path/to/recordings/20240101/snapshot.jpg",
+   *     "original": "snapshot.jpg",
+   *     "thumbnail": "thumbnail-snapshot.jpg",
+   *     "width": 1920,
+   *     "height": 1080
+   *   }
    * }
+   * // Response (fileType='stream'): 直接返回图片二进制流，Content-Type: image/jpeg
    */
   static snapshot(pathName, fileType = 'url', options = {}) {
     const token = this.options.token;
@@ -1245,7 +1267,11 @@ class MRLS {
    * }
    * // Response:
    * {
-   *   "success": true
+   *   "success": true,
+   *   "result": {
+   *     "oldPath": "/20240101/old.mp4",
+   *     "newPath": "/20240101/new.mp4"
+   *   }
    * }
    */
   static rename(fullPath, name) {
@@ -1282,7 +1308,10 @@ class MRLS {
    * }
    * // Response:
    * {
-   *   "success": true
+   *   "success": true,
+   *   "result": {
+   *     "path": "/20240101/file.mp4"
+   *   }
    * }
    */
   static del(fullPath, name) {
