@@ -364,6 +364,12 @@ pathDefaults:
 # 支持正则表达式（使用 ~ 作为前缀）
 
 paths:
+  # r-video
+  # stream02:
+  #   source: r-video://88f2905c3b4a
+  #   sourceName: stream02
+  #   sourceUrl: rtsp://127.0.0.1:554/stream10
+  #   sourceOnDemand: no
   # 内镜3 直播流配置
   livedemo3:
     # 流地址
@@ -375,19 +381,22 @@ paths:
     # 组名
     groupName: 内镜
     # 裁剪区域 x,y,w,h
-    cut: [0, 0, 1300, 1080]
+    # cut: [0, 0, 1300, 1080]
     # 截图后图片后处理：亮度 -100 to 100
     brightness: 20
     # 截图后图片后处理：对比度 -100 to 100
     contrast: 30
     # 截图后图片后处理：饱和度 -100 to 100
     saturation: 30
+    deviceType: "network_capture"
+
     # 自动化录制开关
-    record: yes
+    record: no
+    recordMinThreshold: 60
     # 自动识别图片区域留图开关
-    videoSnapshotEnable: yes
+    videoSnapshotEnable: no
     # 自动识别图片区域留图配置文件
     videoSnapshotPipelineConf: AB-290.json
 
   # "all_others" 路径下的配置应用于所有未匹配其他规则的路径
-  all_others:
+  # all_others:

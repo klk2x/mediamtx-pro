@@ -1,6 +1,9 @@
 package httpp
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 )
@@ -23,6 +26,15 @@ func (w *writeTimeoutWriter) Write(p []byte) (int, error) {
 func (w *writeTimeoutWriter) WriteHeader(statusCode int) {
 	w.rc.SetWriteDeadline(time.Now().Add(w.timeout)) //nolint:errcheck
 	w.w.WriteHeader(statusCode)
+}
+
+// Hijack implements http.Hijacker interface for WebSocket support
+func (w *writeTimeoutWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.w.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not support hijacking")
+	}
+	return hijacker.Hijack()
 }
 
 // apply write deadline before every Write() call.

@@ -1119,10 +1119,10 @@ socket.addEventListener('message', function (event) {
                                 <h5>播放</h5>
                                 </h5>
                                 <p>引入mrls.js，调用playStreaming方法</p>
-                                <p>或如：<span class="request"> http://127.0.0.1:18889/live/ch11/?controls=enable</span>
+                                <p>或如：<span class="request"> http://127.0.0.1:8889/live/ch11/?controls=enable</span>
                                     controls=enable 表示显示控制</p>
                                 <pre v-code.js class="language-markup"><code class="language-markup">
-const server = MRLS.init(`http://${window.location.hostname}:18889`);
+const server = MRLS.init(`http://${window.location.hostname}:8889`);
 const preview = document.getElementById("preview");
 server.playStreaming(
     { 
@@ -1196,7 +1196,7 @@ const recorder = new MediaRecorder(stream, options);
     function play() {
         const playName = document.getElementById("playName").value;
 
-        const server = MRLS.init(`http://${window.location.hostname}:18889`, {
+        const server = MRLS.init(`http://${window.location.hostname}:8889`, {
             token: "",
         });
         if (playName) {

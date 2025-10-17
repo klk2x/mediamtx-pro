@@ -142,8 +142,10 @@ func (a *APIV2) Initialize() error {
 	group.POST("/snapshot/config/*name", a.snapshotConfSave)
 
 	// Snapshot capture endpoints
-	group.GET("/snapshot", a.snapshot)
-	group.GET("/publish/snapshot", a.snapshotStream)
+	group.GET("/snapshot", a.snapshot)                     // Device HTTP API snapshot
+	group.GET("/publish/snapshot", a.snapshotStream)       // FFmpeg snapshot from stream
+	group.GET("/snapshot/native", a.snapshotNative)        // Pure Go snapshot from MediaMTX stream
+	group.GET("/snapshot/mjpeg", a.snapshotNativeMJPEG)    // MJPEG streaming endpoint
 
 	// Device proxy endpoint
 	group.Any("/proxy/device/*path", a.proxyToDevice)

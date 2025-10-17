@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaMTX Pro - 原生截图测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .image-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .image-container img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stream-container {
+            position: relative;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .grid-item {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .code-block {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎥 MediaMTX Pro - 原生截图功能测试</h1>
+
+    <!-- 配置区域 -->
+    <div class="section">
+        <h2>📝 配置</h2>
+        <div class="input-group">
+            <label for="apiUrl">API 地址:</label>
+            <input type="text" id="apiUrl" value="http://localhost:9997" placeholder="http://localhost:9997">
+        </div>
+        <div class="input-group">
+            <label for="pathName">Path 名称:</label>
+            <input type="text" id="pathName" value="livedemo3" placeholder="livedemo3">
+        </div>
+    </div>
+
+    <!-- 单帧截图测试 -->
+    <div class="section">
+        <h2>📷 单帧截图测试 (Native)</h2>
+        <p>从 MediaMTX 流中捕获单帧，支持 MJPEG 格式。</p>
+
+        <div class="input-group">
+            <label for="fileType">返回类型:</label>
+            <select id="fileType">
+                <option value="stream">stream - 直接返回图片</option>
+                <option value="file">file - 保存到文件</option>
+                <option value="url">url - 保存并返回 URL</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="brightness">亮度 (-100 到 100):</label>
+            <input type="number" id="brightness" value="0" min="-100" max="100">
+        </div>
+
+        <div class="input-group">
+            <label for="contrast">对比度 (-100 到 100):</label>
+            <input type="number" id="contrast" value="0" min="-100" max="100">
+        </div>
+
+        <div class="input-group">
+            <label for="saturation">饱和度 (-100 到 100):</label>
+            <input type="number" id="saturation" value="0" min="-100" max="100">
+        </div>
+
+        <button onclick="captureNativeSnapshot()">📸 捕获单帧</button>
+        <button onclick="captureFFmpegSnapshot()">📸 FFmpeg 截图 (对比)</button>
+
+        <div id="snapshotStatus"></div>
+        <div id="snapshotImage" class="image-container"></div>
+        <div id="snapshotInfo" class="code-block" style="display:none;"></div>
+    </div>
+
+    <!-- MJPEG 实时流测试 -->
+    <div class="section">
+        <h2>🎬 MJPEG 实时流测试</h2>
+        <p>连续的 MJPEG 视频流，适合实时监控。<strong>仅支持 MJPEG 格式源！</strong></p>
+
+        <button onclick="startMJPEGStream()">▶️ 开始流</button>
+        <button onclick="stopMJPEGStream()">⏹️ 停止流</button>
+
+        <div id="mjpegStatus"></div>
+        <div id="mjpegStream" class="stream-container" style="display:none;"></div>
+    </div>
+
+    <!-- API 对比测试 -->
+    <div class="section">
+        <h2>⚡ 性能对比</h2>
+        <p>对比三种截图方法的性能差异。</p>
+
+        <button onclick="performanceTest()">🏃 运行性能测试</button>
+        <button onclick="clearPerformanceResults()">🗑️ 清除结果</button>
+
+        <div id="performanceStatus"></div>
+        <div id="performanceResults" class="grid"></div>
+    </div>
+
+    <!-- API 文档 -->
+    <div class="section">
+        <h2>📚 API 端点</h2>
+
+        <h3>1. 原生单帧截图</h3>
+        <div class="code-block">
+            <pre>GET /api/v2/snapshot/native?name={path}&fileType=stream&brightness=0&contrast=0</pre>
+        </div>
+
+        <h3>2. MJPEG 实时流</h3>
+        <div class="code-block">
+            <pre>GET /api/v2/snapshot/mjpeg?name={path}</pre>
+        </div>
+
+        <h3>3. FFmpeg 截图（对比）</h3>
+        <div class="code-block">
+            <pre>GET /api/v2/publish/snapshot?name={path}&fileType=stream</pre>
+        </div>
+    </div>
+
+    <script>
+        let mjpegImg = null;
+
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value;
+        }
+
+        function getPathName() {
+            return document.getElementById('pathName').value;
+        }
+
+        function showStatus(elementId, message, type = 'info') {
+            const el = document.getElementById(elementId);
+            el.className = `status ${type}`;
+            el.innerHTML = message;
+            el.style.display = 'block';
+        }
+
+        async function captureNativeSnapshot() {
+            const apiUrl = getApiUrl();
+            const pathName = getPathName();
+            const fileType = document.getElementById('fileType').value;
+            const brightness = document.getElementById('brightness').value;
+            const contrast = document.getElementById('contrast').value;
+            const saturation = document.getElementById('saturation').value;
+
+            const url = `${apiUrl}/api/v2/snapshot/native?name=${pathName}&fileType=${fileType}&brightness=${brightness}&contrast=${contrast}&saturation=${saturation}`;
+
+            showStatus('snapshotStatus', '正在捕获图片...', 'info');
+
+            const startTime = performance.now();
+            try {
+                const response = await fetch(url);
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                if (fileType === 'stream') {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    const img = new Image();
+                    img.onload = () => {
+                        showStatus('snapshotStatus',
+                            `✅ 成功! 延迟: ${latency}ms | 尺寸: ${img.width}x${img.height}`,
+                            'success');
+                    };
+                    img.src = imageUrl;
+                    document.getElementById('snapshotImage').innerHTML = '';
+                    document.getElementById('snapshotImage').appendChild(img);
+                } else {
+                    const result = await response.json();
+                    showStatus('snapshotStatus',
+                        `✅ 成功! 延迟: ${latency}ms | 文件: ${result.filePath}`,
+                        'success');
+
+                    document.getElementById('snapshotInfo').style.display = 'block';
+                    document.getElementById('snapshotInfo').innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+
+                    if (result.fileURL) {
+                        const img = document.createElement('img');
+                        img.src = result.fileURL;
+                        document.getElementById('snapshotImage').innerHTML = '';
+                        document.getElementById('snapshotImage').appendChild(img);
+                    }
+                }
+            } catch (error) {
+                showStatus('snapshotStatus', `❌ 错误: ${error.message}`, 'error');
+                console.error('Snapshot error:', error);
+            }
+        }
+
+        async function captureFFmpegSnapshot() {
+            const apiUrl = getApiUrl();
+            const pathName = getPathName();
+            const fileType = document.getElementById('fileType').value;
+
+            const url = `${apiUrl}/api/v2/publish/snapshot?name=${pathName}&fileType=${fileType}`;
+
+            showStatus('snapshotStatus', '正在使用 FFmpeg 捕获图片...', 'info');
+
+            const startTime = performance.now();
+            try {
+                const response = await fetch(url);
+                const endTime = performance.now();
+                const latency = Math.round(endTime - startTime);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                if (fileType === 'stream') {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    const img = new Image();
+                    img.onload = () => {
+                        showStatus('snapshotStatus',
+                            `✅ FFmpeg 成功! 延迟: ${latency}ms | 尺寸: ${img.width}x${img.height}`,
+                            'success');
+                    };
+                    img.src = imageUrl;
+                    document.getElementById('snapshotImage').innerHTML = '';
+                    document.getElementById('snapshotImage').appendChild(img);
+                }
+            } catch (error) {
+                showStatus('snapshotStatus', `❌ FFmpeg 错误: ${error.message}`, 'error');
+                console.error('FFmpeg snapshot error:', error);
+            }
+        }
+
+        function startMJPEGStream() {
+            if (mjpegImg) {
+                stopMJPEGStream();
+            }
+
+            const apiUrl = getApiUrl();
+            const pathName = getPathName();
+            const url = `${apiUrl}/api/v2/snapshot/mjpeg?name=${pathName}&t=${Date.now()}`;
+
+            mjpegImg = document.createElement('img');
+            mjpegImg.style.width = '100%';
+            mjpegImg.style.height = 'auto';
+
+            mjpegImg.onerror = () => {
+                showStatus('mjpegStatus',
+                    '❌ 流连接失败。请确保源是 MJPEG 格式！',
+                    'error');
+            };
+
+            mjpegImg.onload = () => {
+                showStatus('mjpegStatus', '✅ MJPEG 流已连接', 'success');
+            };
+
+            mjpegImg.src = url;
+
+            document.getElementById('mjpegStream').innerHTML = '';
+            document.getElementById('mjpegStream').appendChild(mjpegImg);
+            document.getElementById('mjpegStream').style.display = 'block';
+
+            showStatus('mjpegStatus', '正在连接 MJPEG 流...', 'info');
+        }
+
+        function stopMJPEGStream() {
+            if (mjpegImg) {
+                mjpegImg.src = '';
+                mjpegImg = null;
+            }
+            document.getElementById('mjpegStream').style.display = 'none';
+            showStatus('mjpegStatus', '⏹️ 流已停止', 'info');
+        }
+
+        async function performanceTest() {
+            const apiUrl = getApiUrl();
+            const pathName = getPathName();
+            const iterations = 5;
+
+            showStatus('performanceStatus', `🏃 正在运行性能测试 (${iterations} 次迭代)...`, 'info');
+            document.getElementById('performanceResults').innerHTML = '';
+
+            const tests = [
+                {
+                    name: '原生 MJPEG',
+                    url: `${apiUrl}/api/v2/snapshot/native?name=${pathName}&fileType=stream`,
+                    color: '#4CAF50'
+                },
+                {
+                    name: 'FFmpeg',
+                    url: `${apiUrl}/api/v2/publish/snapshot?name=${pathName}&fileType=stream`,
+                    color: '#2196F3'
+                }
+            ];
+
+            const results = [];
+
+            for (const test of tests) {
+                const latencies = [];
+                let errors = 0;
+
+                for (let i = 0; i < iterations; i++) {
+                    try {
+                        const startTime = performance.now();
+                        const response = await fetch(test.url);
+                        if (response.ok) {
+                            await response.blob();
+                            const endTime = performance.now();
+                            latencies.push(Math.round(endTime - startTime));
+                        } else {
+                            errors++;
+                        }
+                    } catch (error) {
+                        errors++;
+                        console.error(`${test.name} error:`, error);
+                    }
+                }
+
+                if (latencies.length > 0) {
+                    const avg = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+                    const min = Math.min(...latencies);
+                    const max = Math.max(...latencies);
+
+                    results.push({
+                        name: test.name,
+                        avg, min, max,
+                        errors,
+                        color: test.color
+                    });
+                }
+            }
+
+            // Display results
+            let html = '';
+            for (const result of results) {
+                html += `
+                    <div class="grid-item" style="border-left: 4px solid ${result.color}">
+                        <h3>${result.name}</h3>
+                        <p><strong>平均延迟:</strong> ${result.avg}ms</p>
+                        <p><strong>最小/最大:</strong> ${result.min}ms / ${result.max}ms</p>
+                        <p><strong>错误:</strong> ${result.errors}</p>
+                    </div>
+                `;
+            }
+            document.getElementById('performanceResults').innerHTML = html;
+
+            showStatus('performanceStatus', '✅ 性能测试完成！', 'success');
+        }
+
+        function clearPerformanceResults() {
+            document.getElementById('performanceResults').innerHTML = '';
+            showStatus('performanceStatus', '🗑️ 结果已清除', 'info');
+        }
+
+        // 初始化提示
+        window.onload = () => {
+            showStatus('snapshotStatus', 'ℹ️ 配置参数后点击"捕获单帧"开始测试', 'info');
+            showStatus('mjpegStatus', 'ℹ️ 点击"开始流"查看实时 MJPEG 视频流', 'info');
+            showStatus('performanceStatus', 'ℹ️ 点击"运行性能测试"对比不同方法的性能', 'info');
+        };
+    </script>
+</body>
+</html>

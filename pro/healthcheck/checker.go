@@ -23,9 +23,9 @@ const (
 	DeviceTypeNetworkCapture = "network_capture"
 
 	// Fixed health check parameters
-	checkInterval     = 60 * time.Second // 固定60秒检查一次
-	failureThreshold  = 6                // 固定失败6次后重启设备
-	rebootTimeout     = 10 * time.Second // 重启请求超时时间
+	checkInterval    = 5 * time.Second  // 固定60秒检查一次
+	failureThreshold = 6                // 固定失败6次后重启设备
+	rebootTimeout    = 10 * time.Second // 重启请求超时时间
 )
 
 // Checker monitors path health and restarts capture devices when needed.
@@ -203,7 +203,6 @@ func (m *pathMonitor) performCheck() {
 		m.checker.Log(logger.Debug, "device %s not available, skipping snapshot check", m.deviceIP)
 		return
 	}
-
 	// Then, check snapshot
 	_, _, err = m.snapshotGetter.GetSnapshot(m.pathName)
 	if err != nil {

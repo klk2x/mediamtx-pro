@@ -98,19 +98,41 @@ func (s *Source) Run(params defs.StaticSourceRunParams) (err error) {
 		return err
 	}
 
+	// Use SourceUrl if configured, otherwise fall back to ResolvedSource
+	sourceUrl := params.Conf.SourceUrl
+	if sourceUrl == "" {
+		sourceUrl = params.ResolvedSource
+		s.Log(logger.Info, "using ResolvedSource: %s", sourceUrl)
+	} else {
+		s.Log(logger.Info, "using SourceUrl: %s", sourceUrl)
+	}
+
 	var conn *RVideoEndpoint
 
-	if conn, err = rvideoClient.GetRVideoEndpointByUrl(params.ResolvedSource); err != nil {
+	if conn, err = rvideoClient.GetRVideoEndpointByUrl(sourceUrl); err != nil {
 		return err
 	}
 
-	u, err := base.ParseURL(params.ResolvedSource)
+	u, err := base.ParseURL(sourceUrl)
 	if err != nil {
+		s.Log(logger.Error, "ParseURL failed: url=%s, err=%s", sourceUrl, err)
 		return err
+	}
+
+	s.Log(logger.Info, "ParseURL success: scheme=%s, host=%s, path=%s", u.Scheme, u.Host, u.Path)
+
+	// Determine scheme
+	var scheme string
+	if u.Scheme == "rtsp" {
+		scheme = "rtsp"
+	} else {
+		scheme = "rtsps"
 	}
 
 	protocol := gortsplib.ProtocolTCP
 	c := &gortsplib.Client{
+		Scheme:         scheme,        // Must be set for v5
+		Host:           u.Host,        // Must be set for v5
 		DialContext:    conn.DailRemote,
 		Protocol:       &protocol,
 		TLSConfig:      tls.MakeConfig(u.Hostname(), params.Conf.SourceFingerprint),
@@ -135,7 +157,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) (err error) {
 		},
 	}
 
-	s.Log(logger.Info, "scheme=%s, host=%s", u.Scheme, u.Host)
+	s.Log(logger.Info, "gortsplib.Client created with scheme=%s, host=%s", scheme, u.Host)
 	err = c.Start()
 	if err != nil {
 		return err

@@ -144,8 +144,8 @@ func (m *Manager) StartRecording(params *StartParams) (*StartResponse, error) {
 		Format:       params.VideoFormat,
 		RecordPath:   m.RecordPath,
 		PathManager:  m.PathManager,
-		PathConf:     pathConf,        // Path-specific config for sourceName
-		PathDefaults: m.PathDefaults,  // PathDefaults for webhook URL
+		PathConf:     pathConf,       // Path-specific config for sourceName
+		PathDefaults: m.PathDefaults, // PathDefaults for webhook URL
 		Parent:       m,
 	}
 
@@ -228,10 +228,10 @@ func (m *Manager) OnTaskComplete(pathName string) {
 
 // StartParams contains parameters for starting a recording.
 type StartParams struct {
-	Name            string  `json:"name" binding:"required"`
-	VideoFormat     string  `json:"videoFormat" binding:"required"`
-	TaskOutMinutes  float64 `json:"taskOutMinutes"`
-	FileName        string  `json:"fileName"`
+	Name           string  `json:"name" binding:"required"`
+	VideoFormat    string  `json:"videoFormat" binding:"required"`
+	TaskOutMinutes float64 `json:"taskOutMinutes"`
+	FileName       string  `json:"fileName"`
 }
 
 // StartResponse is the response for start recording request.
@@ -340,6 +340,7 @@ func (m *Manager) checkAndStartAutoRecording() {
 
 		// For network capture devices, check if colorful content is present
 		if pathConf.DeviceType == "network_capture" {
+			m.Log(logger.Info, "checking network capture device '%s' for colorful content", pathName)
 			if !m.shouldStartNetworkCaptureRecording(pathName, pathConf) {
 				continue
 			}
@@ -419,11 +420,11 @@ func (m *Manager) shouldStartNetworkCaptureRecording(pathName string, pathConf *
 
 	threshold := pathConf.RecordMinThreshold
 	if threshold <= 0 {
-		threshold = 60 // Default threshold
+		threshold = 1 // Default threshold
 	}
 
-	m.Log(logger.Debug, "Network capture check: path=%s pingCount=%d colorful++=%d threshold=%d",
-		pathName, state.pingCount, state.colorfulValue, threshold)
+	m.Log(logger.Info, "Network capture check: path=%s pingCount=%d colorfulValue=%d currentColorful=%d threshold=%d",
+		pathName, state.pingCount, state.colorfulValue, colorfulVal, threshold)
 
 	// Need 3 consecutive checks with total colorful value > threshold
 	if state.pingCount >= 3 && state.colorfulValue > threshold {

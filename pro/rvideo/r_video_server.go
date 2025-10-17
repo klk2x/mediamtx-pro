@@ -122,19 +122,19 @@ func (p *RVideoServer) GetClient(id string) (cli *RVideoClient) {
 }
 
 func NewRVideoServer(clientAddress string, parent logger.Writer) (rVideoServer *RVideoServer, err error) {
-	server = &RVideoServer{
+	rVideoServer = &RVideoServer{
 		clients: make(map[string]*RVideoClient),
 		rw:      new(sync.RWMutex),
 		Version: "1.0.0",
 		parent:  parent,
 	}
 
-	server.clientListener, err = net.Listen("tcp", clientAddress)
+	rVideoServer.clientListener, err = net.Listen("tcp", clientAddress)
 	if err != nil {
-		server.Log(logger.Error, "err=%s", err)
+		rVideoServer.Log(logger.Error, "err=%s", err)
 		return nil, err
 	}
-	server.Log(logger.Info, "R-Video Client listening on: %s", clientAddress)
+	rVideoServer.Log(logger.Info, "R-Video Client listening on: %s", clientAddress)
 
 	//connectionAddress := "0.0.0.0:1689"
 	//server.connectionListener, err = net.Listen("tcp", connectionAddress)
@@ -143,10 +143,14 @@ func NewRVideoServer(clientAddress string, parent logger.Writer) (rVideoServer *
 	//	return nil, err
 	//}
 	//log.Infof("R-Video Connection listening on: %s", connectionAddress)
+
+	// Set global server instance
+	server = rVideoServer
+
 	go func() {
-		err = server.Serve()
+		err = rVideoServer.Serve()
 	}()
-	return server, nil
+	return rVideoServer, nil
 }
 
 var server *RVideoServer

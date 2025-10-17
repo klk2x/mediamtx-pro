@@ -38,13 +38,13 @@ type ImageCopyReq struct {
 // apiV2SnapshotReq represents snapshot request parameters
 type apiV2SnapshotReq struct {
 	Name          string        `json:"name" form:"name" binding:"required"`
-	FileType      string        `json:"fileType" form:"fileType"`       // url, file, stream (default)
-	FileName      string        `json:"fileName" form:"fileName"`       // custom filename
-	ImageCopy     string        `json:"imageCopy" form:"imageCopy"`     // JSON string for cropping
-	ImageCopyReq  *ImageCopyReq `json:"-"`                              // Parsed cropping params
-	Brightness    int           `json:"brightness" form:"brightness"`   // -100 to 100
-	Contrast      int           `json:"contrast" form:"contrast"`       // -100 to 100
-	Saturation    int           `json:"saturation" form:"saturation"`   // -100 to 100
+	FileType      string        `json:"fileType" form:"fileType"`           // url, file, stream (default)
+	FileName      string        `json:"fileName" form:"fileName"`           // custom filename
+	ImageCopy     string        `json:"imageCopy" form:"imageCopy"`         // JSON string for cropping
+	ImageCopyReq  *ImageCopyReq `json:"-"`                                  // Parsed cropping params
+	Brightness    int           `json:"brightness" form:"brightness"`       // -100 to 100
+	Contrast      int           `json:"contrast" form:"contrast"`           // -100 to 100
+	Saturation    int           `json:"saturation" form:"saturation"`       // -100 to 100
 	ThumbnailSize int           `json:"thumbnailSize" form:"thumbnailSize"` // Thumbnail width (default 320)
 }
 
@@ -102,11 +102,6 @@ func (a *APIV2) snapshot(ctx *gin.Context) {
 		req.ImageCopyReq = &copyReq
 	}
 
-	// Set default thumbnail size
-	if req.ThumbnailSize == 0 {
-		req.ThumbnailSize = 320
-	}
-
 	// Get snapshot from device
 	imageBytes, finalReq, err := a.snapshotRequest(req)
 	if err != nil {
@@ -134,11 +129,6 @@ func (a *APIV2) snapshotStream(ctx *gin.Context) {
 			return
 		}
 		req.ImageCopyReq = &copyReq
-	}
-
-	// Set default thumbnail size
-	if req.ThumbnailSize == 0 {
-		req.ThumbnailSize = 320
 	}
 
 	// Get snapshot using FFmpeg
@@ -309,6 +299,11 @@ func (a *APIV2) applyPathConfigDefaults(snapshotReq *apiV2SnapshotReq, pathConf 
 	}
 	if snapshotReq.Brightness == 0 && pathConf.Brightness != nil {
 		snapshotReq.Brightness = *pathConf.Brightness
+	}
+
+	// Apply thumbnail size from path config
+	if snapshotReq.ThumbnailSize == 0 {
+		snapshotReq.ThumbnailSize = pathConf.ThumbnailSize
 	}
 }
 
@@ -500,7 +495,7 @@ func (a *APIV2) processSnapshotResponse(ctx *gin.Context, imageBytes []byte, req
 
 	case "url", "file":
 		// Save to file and return URL or file path
-		res, err := a.saveSnapshotToFile(croppedImg, processedImg, req)
+		res, err := a.saveSnapshotToFile(croppedImg, req)
 		if err != nil {
 			a.writeError(ctx, http.StatusInternalServerError, err)
 			return
@@ -567,7 +562,7 @@ func (a *APIV2) cropImage(img image.Image, crop *ImageCopyReq) image.Image {
 }
 
 // saveSnapshotToFile saves the snapshot to file and returns response
-func (a *APIV2) saveSnapshotToFile(croppedImg, originalImg image.Image, req apiV2SnapshotReq) (*apiV2SnapshotRes, error) {
+func (a *APIV2) saveSnapshotToFile(croppedImg image.Image, req apiV2SnapshotReq) (*apiV2SnapshotRes, error) {
 	a.mutex.RLock()
 	recordPath := a.Conf.PathDefaults.RecordPath
 	a.mutex.RUnlock()
@@ -603,35 +598,50 @@ func (a *APIV2) saveSnapshotToFile(croppedImg, originalImg image.Image, req apiV
 		return nil, fmt.Errorf("failed to encode image: %w", err)
 	}
 
-	// Create thumbnail
-	thumbnailFilename := "thumbnail-" + baseFilename + ".jpg"
-	thumbnailPath := filepath.Join(saveDir, thumbnailFilename)
-
-	thumbnailImg := transform.Resize(originalImg, req.ThumbnailSize, 0, transform.Lanczos)
-	thumbnailFile, err := os.Create(thumbnailPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create thumbnail: %w", err)
-	}
-	defer thumbnailFile.Close()
-
-	if err := jpeg.Encode(thumbnailFile, thumbnailImg, &jpeg.Options{Quality: 85}); err != nil {
-		return nil, fmt.Errorf("failed to encode thumbnail: %w", err)
-	}
-
 	// Build response
 	relPath := "/" + filepath.Join(dateDir, originalFilename)
 	fileURL := a.PathToURL(originalPath)
 
 	res := &apiV2SnapshotRes{
-		Success:   true,
-		FilePath:  relPath,
-		FileURL:   fileURL,
-		Filename:  originalFilename,
-		FullPath:  originalPath,
-		Original:  originalFilename,
-		Thumbnail: thumbnailFilename,
-		Width:     croppedImg.Bounds().Dx(),
-		Height:    croppedImg.Bounds().Dy(),
+		Success:  true,
+		FilePath: relPath,
+		FileURL:  fileURL,
+		Filename: originalFilename,
+		FullPath: originalPath,
+		Original: originalFilename,
+		Width:    croppedImg.Bounds().Dx(),
+		Height:   croppedImg.Bounds().Dy(),
+	}
+
+	// Create thumbnail only if thumbnailSize is specified
+	if req.ThumbnailSize > 0 {
+		thumbnailFilename := "thumbnail-" + baseFilename + ".jpg"
+		thumbnailPath := filepath.Join(saveDir, thumbnailFilename)
+
+		// Get current image dimensions
+		currentWidth := croppedImg.Bounds().Dx()
+		currentHeight := croppedImg.Bounds().Dy()
+
+		// Calculate target height maintaining aspect ratio
+		// thumbnailSize is always the target width
+		targetWidth := req.ThumbnailSize
+		targetHeight := int(float64(currentHeight) * float64(targetWidth) / float64(currentWidth))
+
+		// Resize the image
+		thumbnailImg := transform.Resize(croppedImg, targetWidth, targetHeight, transform.Lanczos)
+
+		thumbnailFile, err := os.Create(thumbnailPath)
+		if err != nil {
+			a.Log(logger.Warn, "failed to create thumbnail file: %v", err)
+		} else {
+			defer thumbnailFile.Close()
+			if err := jpeg.Encode(thumbnailFile, thumbnailImg, &jpeg.Options{Quality: 85}); err != nil {
+				a.Log(logger.Warn, "failed to encode thumbnail: %v", err)
+			} else {
+				res.Thumbnail = thumbnailFilename
+				a.Log(logger.Info, "Thumbnail created: %dx%d", thumbnailImg.Bounds().Dx(), thumbnailImg.Bounds().Dy())
+			}
+		}
 	}
 
 	a.Log(logger.Info, "Snapshot saved: %s", originalPath)

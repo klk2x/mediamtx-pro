@@ -300,6 +300,16 @@ func (p *Core) createResources(initial bool) error {
 		p.recordCleaner.Initialize()
 	}
 
+	// R-Video Server (must be initialized before pathManager)
+	if p.conf.CodecServerAddress != "" && p.rvideoServer == nil {
+		rvideoServer, err := rvideo.NewRVideoServer(p.conf.CodecServerAddress, p)
+		if err != nil {
+			return err
+		}
+		p.rvideoServer = rvideoServer
+		p.Log(logger.Info, "R-Video Server version=%s", rvideoServer.Version)
+	}
+
 	if p.pathManager == nil {
 		rtpMaxPayloadSize := getRTPMaxPayloadSize(p.conf.UDPMaxPayloadSize, p.conf.RTSPEncryption)
 
@@ -489,16 +499,6 @@ func (p *Core) createResources(initial bool) error {
 			return err
 		}
 		p.webRTCServer = i
-	}
-
-	// R-Video Server
-	if p.conf.CodecServerAddress != "" && p.rvideoServer == nil {
-		rvideoServer, err := rvideo.NewRVideoServer(p.conf.CodecServerAddress, p)
-		if err != nil {
-			return err
-		}
-		p.rvideoServer = rvideoServer
-		p.Log(logger.Info, "R-Video Server version=%s", rvideoServer.Version)
 	}
 
 	// Record Manager

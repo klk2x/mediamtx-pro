@@ -239,17 +239,18 @@ type Path struct {
 	VideoSnapshotEnable         bool     `json:"videoSnapshotEnable"`
 	VideoSnapshotModulePath     string   `json:"videoSnapshotModulePath"`
 	VideoSnapshotPipelineConf   *string  `json:"videoSnapshotPipelineConf,omitempty"`   // 自动识别图片区域留图配置文件
-	SourceName                *string  `json:"sourceName,omitempty"`      // 流名称
-	GroupName                 *string  `json:"groupName,omitempty"`       // 组名
-	Cut                       *[4]int  `json:"cut,omitempty"`             // 裁剪区域 [x,y,w,h]
-	Brightness                *int     `json:"brightness,omitempty"`      // 亮度调整 -100 to 100
-	Contrast                  *int     `json:"contrast,omitempty"`        // 对比度调整 -100 to 100
-	Saturation                *int     `json:"saturation,omitempty"`      // 饱和度调整 -100 to 100
-	AutoRecordTaskOutDuration Duration `json:"autoRecordTaskOutDuration"` // 自动录制的最大时长（默认30分钟）
-	ShowList                  bool     `json:"showList"`                  // 是否在列表中显示
-	Order                     int      `json:"order"`                     // 排序顺序
-	DeviceType                string   `json:"deviceType"`                // 设备类型：network_capture=网络采集卡，其他值或空=普通网络流
-	RecordMinThreshold        int      `json:"recordMinThreshold"`        // 智能录制的彩色阈值（仅对 network_capture 且 record=yes 有效）
+	SourceName                  *string  `json:"sourceName,omitempty"`      // 流名称
+	SourceUrl                   string   `json:"sourceUrl"`                 // RVideo 专用源 URL（用于替代 Source）
+	GroupName                   *string  `json:"groupName,omitempty"`       // 组名
+	Cut                         *[4]int  `json:"cut,omitempty"`             // 裁剪区域 [x,y,w,h]
+	Brightness                  *int     `json:"brightness,omitempty"`      // 亮度调整 -100 to 100
+	Contrast                    *int     `json:"contrast,omitempty"`        // 对比度调整 -100 to 100
+	Saturation                  *int     `json:"saturation,omitempty"`      // 饱和度调整 -100 to 100
+	AutoRecordTaskOutDuration   Duration `json:"autoRecordTaskOutDuration"` // 自动录制的最大时长（默认30分钟）
+	ShowList                    bool     `json:"showList"`                  // 是否在列表中显示
+	Order                       int      `json:"order"`                     // 排序顺序
+	DeviceType                  string   `json:"deviceType"`                // 设备类型：network_capture=网络采集卡，其他值或空=普通网络流
+	RecordMinThreshold          int      `json:"recordMinThreshold"`        // 智能录制的彩色阈值（仅对 network_capture 且 record=yes 有效）
 }
 
 func (pconf *Path) setDefaults() {
@@ -300,7 +301,7 @@ func (pconf *Path) setDefaults() {
 
 	// Pro Extension
 	pconf.RecordClearDaysAgo = 10
-	pconf.ThumbnailSize = 300
+	pconf.ThumbnailSize = 0 // 默认不生成缩略图，需要在配置中明确指定
 	pconf.VideoSnapshotEnable = false
 	pconf.AutoRecordTaskOutDuration = 30 * Duration(time.Minute) // 默认30分钟
 	pconf.ShowList = true                                         // 默认显示在列表中
@@ -658,6 +659,10 @@ func (pconf *Path) validate(
 			primary.RPICameraSecondaryFPS = pconf.RPICameraFPS
 			primary.RPICameraSecondaryMJPEGQuality = pconf.RPICameraMJPEGQuality
 		}
+
+	case strings.HasPrefix(pconf.Source, "r-video://"):
+		// RVideo source - Pro extension
+		// Format: r-video://id
 
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
